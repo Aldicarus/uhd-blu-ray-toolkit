@@ -64,7 +64,7 @@ SESION = {
                       "subtitle_tracks": [], "avisos_titulo": AVISOS},
 }
 
-PALABRA_DE_CADA_LENGUA = {"es": "película", "en": "film", "ca": "pel·lícula"}
+PALABRA_DE_CADA_LENGUA = {"es": "película", "en": "film", "ca": "pel·lícula", "de": "Film"}
 
 _CUERPO = """
 <pre id="__out"></pre>
@@ -163,7 +163,7 @@ class TestElTituloDudoso(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.m = {idioma: _medir(idioma) for idioma in ("es", "en", "ca")}
+        cls.m = {idioma: _medir(idioma) for idioma in ("es", "en", "ca", "de")}
 
     def test_sin_errores(self):
         for idioma, m in self.m.items():

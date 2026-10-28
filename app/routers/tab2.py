@@ -1121,7 +1121,11 @@ async def mkv_quality_audit_endpoint(body: dict, request: Request = None):
             _logger.info("[QualityAudit] re-envío del request_id=%s ya completado — devuelvo resultado", request_id)
             return st["result"]
         msg = st.get("error") or tr('tab2.la_auditoria_anterior_no_produjo_resultado')
-        raise HTTPException(status_code=499 if tr('tab2.cancelado') in msg else 500, detail=msg)
+        # Cancelado o fallido lo dice el `step` que dejó el cierre, no el
+        # texto: el motivo está traducido, y en alemán «Abgebrochen» no es
+        # una subcadena de «Vom Benutzer abgebrochen» (2026-10-28).
+        cancelado = st.get("step") == "cancelled"
+        raise HTTPException(status_code=499 if cancelado else 500, detail=msg)
 
     # Lo único que se rechaza es repetir el MISMO MKV: varios análisis a la
     # vez SÍ se admiten, que para eso está la cola. Antes bastaba con que

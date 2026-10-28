@@ -1,4 +1,4 @@
-"""El spinner de la timeline de CMv4.0 sigue a la fase en los tres idiomas.
+"""El spinner de la timeline de CMv4.0 sigue a la fase en los cuatro idiomas.
 
 El WS de un proyecto CMv4.0 enciende y apaga el spinner de la fase en curso
 sin esperar al GET (que con el NAS cargado tarda 30-60 s). Lo hacía leyendo
@@ -41,7 +41,7 @@ sys.path.insert(0, str(TESTS))
 from frontend_sources import argv_node, pieza_de  # noqa: E402
 
 NODE = shutil.which("node")
-IDIOMAS = ("es", "en", "ca")
+IDIOMAS = ("es", "en", "ca", "de")
 
 
 def _funcion(fuente: str, nombre: str) -> str:
@@ -114,7 +114,7 @@ async def _lineas_del_ws(idioma: str) -> list[str]:
 
 
 @unittest.skipUnless(NODE, "node no disponible")
-class TestLaSenalDeFaseEnLosTresIdiomas(unittest.TestCase):
+class TestLaSenalDeFaseEnLosCuatroIdiomas(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -134,11 +134,12 @@ class TestLaSenalDeFaseEnLosTresIdiomas(unittest.TestCase):
         cls.senales = json.loads(r.stdout)
 
     def test_el_servidor_habla_el_idioma_pedido(self):
-        """Si las tres capturas fueran castellanas, el test no probaría nada."""
+        """Si las capturas fueran castellanas, el test no probaría nada."""
         cierres = {i: next(l for l in self.lineas[i] if "✗ Fase" in l) for i in IDIOMAS}
         self.assertIn("FALLÓ", cierres["es"])
         self.assertIn("FAILED", cierres["en"])
         self.assertIn("HA FALLAT", cierres["ca"])
+        self.assertIn("FEHLGESCHLAGEN", cierres["de"])
 
     def test_el_arranque_dice_que_fase_corre(self):
         for i in IDIOMAS:

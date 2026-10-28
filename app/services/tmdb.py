@@ -35,10 +35,18 @@ CACHE_TTL_SECONDS = 30 * 24 * 3600  # 30 días
 # `en-GB` devuelve el original sin avisar. (Es la elección contraria a la de
 # `localeActual()` del frontend, que usa `en-GB` porque ahí lo que se decide
 # es el formato de fecha.)
-_LOCALE_TMDB = {"es": "es-ES", "en": "en-US", "ca": "ca-ES"}
+_LOCALE_TMDB = {"es": "es-ES", "en": "en-US", "ca": "ca-ES", "de": "de-DE"}
 # Si el idioma pedido no tiene ficha, se cae al castellano: la cobertura
-# catalana de TMDb es fina y un `overview` vacío deja la tarjeta muda.
+# catalana de TMDb es fina y un `overview` vacío deja la tarjeta muda. El
+# alemán cae al inglés, que es lo que su lector entiende antes que el
+# castellano (la cobertura alemana de TMDb es buena, así que pasará poco).
 _LOCALE_RESPALDO = "es-ES"
+_RESPALDO_POR_LOCALE = {"de-DE": "en-US"}
+
+
+def _respaldo_de(locale: str | None) -> str:
+    """El locale al que se cae cuando `locale` no trae el texto."""
+    return _RESPALDO_POR_LOCALE.get(locale or "", _LOCALE_RESPALDO)
 
 
 def ficha_caducada_de_idioma(ficha) -> bool:
@@ -72,7 +80,7 @@ def locale_tmdb() -> str:
 
 async def _con_respaldo(client: httpx.AsyncClient, url: str, params: dict,
                         campo: str) -> dict:
-    """La respuesta de TMDb, y si `campo` viene vacío, la castellana.
+    """La respuesta de TMDb, y si `campo` viene vacío, la del respaldo.
 
     TMDb contesta 200 con los campos traducibles en blanco cuando no tiene
     esa localización, y eso no es un error: es lo normal en catalán, que
@@ -83,9 +91,9 @@ async def _con_respaldo(client: httpx.AsyncClient, url: str, params: dict,
     resp = await client.get(url, params=params)
     resp.raise_for_status()
     raw = resp.json()
-    if params.get("language") != _LOCALE_RESPALDO and not (raw.get(campo) or ""):
-        resp = await client.get(url, params={**params,
-                                             "language": _LOCALE_RESPALDO})
+    respaldo = _respaldo_de(params.get("language"))
+    if params.get("language") != respaldo and not (raw.get(campo) or ""):
+        resp = await client.get(url, params={**params, "language": respaldo})
         resp.raise_for_status()
         raw = resp.json()
     return raw
@@ -93,7 +101,8 @@ async def _con_respaldo(client: httpx.AsyncClient, url: str, params: dict,
 
 async def _rellenar_episodios_mudos(client: httpx.AsyncClient, url: str,
                                     params: dict, raw: dict) -> None:
-    """Completa en castellano los episodios que llegan SIN nombre.
+    """Completa con el respaldo (castellano, o inglés en alemán) los episodios
+    que llegan SIN nombre.
 
     `_con_respaldo(..., "episodes")` solo mira que la lista exista, y en
     catalán TMDb devuelve la lista entera con los nombres y sinopsis en
@@ -103,18 +112,19 @@ async def _rellenar_episodios_mudos(client: httpx.AsyncClient, url: str,
     solo lo que viene vacío: lo traducido se queda.
     """
     episodios = raw.get("episodes") or []
-    if params.get("language") == _LOCALE_RESPALDO or not any(
+    respaldo = _respaldo_de(params.get("language"))
+    if params.get("language") == respaldo or not any(
             not (e.get("name") or "").strip() for e in episodios):
         return
-    resp = await client.get(url, params={**params, "language": _LOCALE_RESPALDO})
+    resp = await client.get(url, params={**params, "language": respaldo})
     resp.raise_for_status()
-    castellanos = {e.get("episode_number"): e
-                   for e in (resp.json().get("episodes") or [])}
+    del_respaldo = {e.get("episode_number"): e
+                    for e in (resp.json().get("episodes") or [])}
     for e in episodios:
-        es = castellanos.get(e.get("episode_number")) or {}
+        otro = del_respaldo.get(e.get("episode_number")) or {}
         for campo in ("name", "overview"):
-            if not (e.get(campo) or "").strip() and es.get(campo):
-                e[campo] = es[campo]
+            if not (e.get(campo) or "").strip() and otro.get(campo):
+                e[campo] = otro[campo]
 
 
 class TmdbMatch(BaseModel):

@@ -20,7 +20,7 @@ APP_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_DIR))
 sys.path.insert(0, str(APP_DIR / "tests"))
 
-IDIOMAS = ("es", "en", "ca")
+IDIOMAS = ("es", "en", "ca", "de")
 DIR_FRONT = APP_DIR / "static" / "i18n"
 DIR_BACK = APP_DIR / "i18n"
 
@@ -293,7 +293,7 @@ class TestLosTresCatalogosCuadran(CatalogoCase):
     def test_ninguna_lengua_se_queda_sin_claves_del_castellano(self):
         """El castellano es el original: define el conjunto de claves."""
         for donde, cat in self.catalogos():
-            for otra in ("en", "ca"):
+            for otra in ("en", "ca", "de"):
                 faltan = sorted(set(cat["es"]) - set(cat[otra]))
                 self.assertEqual(faltan, [], (
                     f"[{donde}] {len(faltan)} clave(s) sin traducir a "
@@ -302,7 +302,7 @@ class TestLosTresCatalogosCuadran(CatalogoCase):
     def test_ninguna_lengua_tiene_claves_inventadas(self):
         """Una clave que solo existe en inglés no la pide nadie: es basura."""
         for donde, cat in self.catalogos():
-            for otra in ("en", "ca"):
+            for otra in ("en", "ca", "de"):
                 sobran = sorted(set(cat[otra]) - set(cat["es"]))
                 self.assertEqual(sobran, [],
                                  f"[{donde}] claves en `{otra}` que no están "
@@ -318,7 +318,7 @@ class TestLosTresCatalogosCuadran(CatalogoCase):
         for donde, cat in self.catalogos():
             for clave, es in cat["es"].items():
                 esperados = set(_PARAM.findall(es))
-                for otra in ("en", "ca"):
+                for otra in ("en", "ca", "de"):
                     if clave not in cat[otra]:
                         continue
                     hay = set(_PARAM.findall(cat[otra][clave]))
@@ -335,25 +335,34 @@ class TestElGlosarioSeRespeta(CatalogoCase):
     # solo salta el día que alguien traduce esa frase. La frontera se pone
     # solo en los bordes que son carácter de palabra, para que `[DV FEL]` y
     # `(DCP 9.1.6)` sigan buscándose tal cual.
+    # En alemán la jerga del oficio es un sustantivo, y en alemán todo
+    # sustantivo va con mayúscula, también los préstamos: «das Bin», «der
+    # Merge», «das Remux». Ahí, y solo para estos seis, se compara sin
+    # distinguir; las herramientas y los nombres (mkvmerge, MKV, Season)
+    # siguen exactos en las cuatro lenguas.
+    JERGA = frozenset({"remux", "demux", "playlist", "drop-in", "merge", "bin"})
+
     @staticmethod
-    def _patron(termino: str) -> re.Pattern:
+    def _patron(termino: str, insensible: bool = False) -> re.Pattern:
         ini = r"(?<!\w)" if termino[:1].isalnum() else ""
         # El plural inglés cuenta: «The two RPUs» SÍ lleva el término. Lo que
         # no cuenta es la subcadena dentro de otra palabra, que es lo que la
         # mirada atrás descarta («com*bin*ó» no es un «bin»).
         fin = r"s?(?!\w)" if termino[-1:].isalpha() else ""
-        return re.compile(ini + re.escape(termino) + fin)
+        return re.compile(ini + re.escape(termino) + fin, re.I if insensible else 0)
 
     def test_los_terminos_del_glosario_no_se_traducen(self):
         fallos = []
         patrones = {t: self._patron(t) for t in GLOSARIO}
+        aleman = {t: self._patron(t, t in self.JERGA) for t in GLOSARIO}
         for donde, cat in self.catalogos():
             for clave, es in cat["es"].items():
                 for termino, pat in patrones.items():
                     if not pat.search(es):
                         continue
-                    for otra in ("en", "ca"):
-                        if clave in cat[otra] and not pat.search(cat[otra][clave]):
+                    for otra in ("en", "ca", "de"):
+                        busca = aleman[termino] if otra == "de" else pat
+                        if clave in cat[otra] and not busca.search(cat[otra][clave]):
                             fallos.append(f"[{donde}] `{clave}` ({otra}): "
                                           f"falta «{termino}»")
         self.assertEqual(fallos, [], "\n  · ".join([""] + fallos[:12]))
@@ -402,7 +411,7 @@ class TestElEstiloSeSostiene(CatalogoCase):
     def test_no_hay_cortesia_ornamental(self):
         """«por favor» / «please» / «lo sentimos»: la app no habla así."""
         prohibidas = ("por favor", "please", "lo sentimos", "we are sorry",
-                      "disculpe", "kindly")
+                      "disculpe", "kindly", "bitte", "entschuldig")
         fallos = []
         for donde, cat in self.catalogos():
             for idioma in IDIOMAS:
@@ -493,7 +502,7 @@ class TestElEstiloSeSostiene(CatalogoCase):
                     cat_r, k_r = rotulos[cita]
                     if k_r == k:
                         continue
-                    for l in ("en", "ca"):
+                    for l in ("en", "ca", "de"):
                         rotulo = cat_r[l].get(k_r, "").strip()
                         if rotulo and rotulo not in cat[l].get(k, ""):
                             malas.append(
@@ -581,7 +590,7 @@ class TestElManualEstaCompleto(unittest.TestCase):
         TAG = re.compile(r"<\s*(/?)([a-zA-Z][\w-]*)")
         for seccion, es in self.cat["es"].items():
             base = [m.group(1) + m.group(2).lower() for m in TAG.finditer(es)]
-            for otra in ("en", "ca"):
+            for otra in ("en", "ca", "de"):
                 txt = self.cat[otra].get(seccion, "")
                 if txt == es:
                     continue        # aún sin traducir: cae al castellano
@@ -632,12 +641,14 @@ class TestLasDefinicionesDeNivelSonNominales(CatalogoCase):
     #: un sintagma nominal no arranca con artículo ni con verbo conjugado
     MAL_INICIO = ("el ", "la ", "los ", "las ", "un ", "una ", "es ", "son ",
                   "the ", "a ", "an ", "is ", "are ",
+                  "der ", "die ", "das ", "ein ", "eine ", "ist ", "sind ",
                   # Ni por un interrogativo: «Qué es este fichero y de
                   # dónde viene» es una pregunta indirecta usada como
                   # rótulo, y se coló con el guard puesto.
                   "qué ", "que ", "cómo ", "dónde ", "cuándo ", "cuánto ",
                   "por qué ", "what ", "how ", "where ", "when ",
-                  "què ", "com ", "on ", "quan ", "quant ")
+                  "què ", "com ", "on ", "quan ", "quant ",
+                  "was ", "wie ", "wo ", "wann ", "warum ")
 
     def test_las_once_estan_en_los_tres_catalogos(self):
         """Sin esto el guard pasaría en verde sobre un conjunto vacío.
@@ -651,7 +662,7 @@ class TestLasDefinicionesDeNivelSonNominales(CatalogoCase):
         for donde, cat in self.catalogos():
             if donde != "frontend":
                 continue
-            for idioma in ("es", "en", "ca"):
+            for idioma in ("es", "en", "ca", "de"):
                 faltan = [k for k in self.CLAVES if k not in cat[idioma]]
                 self.assertEqual(faltan, [], f"{idioma}: {faltan}")
 
@@ -660,7 +671,7 @@ class TestLasDefinicionesDeNivelSonNominales(CatalogoCase):
         for donde, cat in self.catalogos():
             if donde != "frontend":
                 continue
-            for idioma in ("es", "en", "ca"):
+            for idioma in ("es", "en", "ca", "de"):
                 for k in self.CLAVES:
                     v = cat[idioma].get(k, "")
                     for signo, motivo in self.PROHIBIDO.items():
@@ -675,7 +686,7 @@ class TestLasDefinicionesDeNivelSonNominales(CatalogoCase):
         for donde, cat in self.catalogos():
             if donde != "frontend":
                 continue
-            for idioma in ("es", "en", "ca"):
+            for idioma in ("es", "en", "ca", "de"):
                 for k in self.CLAVES:
                     v = cat[idioma].get(k, "")
                     if v.lower().startswith(self.MAL_INICIO):
@@ -816,6 +827,16 @@ class TestMultiplexarHablaConPrecision(CatalogoCase):
             r"\ben marxa\b": "l'app diu «en curs»",
             r"\bpenjat\b": "«penjat»: és «bloquejat»",
             r"\ba mà\b": "«a mà»: és «manualment»",
+        },
+        # El alemán llegó con la pasada ya hecha (2026-10-28): son las mismas
+        # metáforas, en la forma en que se colarían en alemán.
+        "de": {
+            r"\bstreck|\bdehn": "«strecken»/«dehnen» un audio: es «seine Geschwindigkeit ändern»",
+            r"\bpass(?:t|en)\b": "«passen zu» por «coincidir con»: es «synchron sein» o «übereinstimmen»",
+            r"\bwie (?:es|sie) (?:ist|sind)\b": "«tal cual»: es «ohne Anpassung»",
+            r"\bvon Hand\b": "«von Hand»: es «manuell»",
+            r"\bhängen ?geblieben\b": "«colgado»: es «blockiert»",
+            r"\bsowieso\b": "coletilla de conversación",
         },
     }
 

@@ -854,10 +854,13 @@ def _extract_channels(description: str) -> str:
 #     diálogo entero;
 #   · el `(DCP 9.1.6)` se queda SIEMPRE en la castellana — es una propiedad
 #     de esa mezcla, no del idioma de la interfaz.
+# El alemán (2026-10-28) va solo, como el castellano y el inglés: los UHD
+# Blu-ray que se venden en Alemania traen casi siempre la pista alemana.
 IDIOMAS_DEL_PERFIL: dict[str, tuple[str, ...]] = {
     "es": ("spanish",),
     "en": ("english",),
     "ca": ("catalan", "spanish"),
+    "de": ("german",),
 }
 
 

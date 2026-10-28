@@ -241,3 +241,47 @@ class TestElResultadoDeUnaAuditoriaPorId(ApiTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestElReenvioDeUnAnalisisCancelado(ApiTestCase):
+    """Re-enviar el POST de un análisis extendido ya cerrado contesta 499 si
+    se canceló y 500 si falló.
+
+    Lo decidía el TEXTO del motivo (`tr('tab2.cancelado') in msg`), y el
+    motivo está traducido: en alemán «Abgebrochen» no es una subcadena de
+    «Vom Benutzer abgebrochen», así que una cancelación se contestaba como un
+    error del servidor. Lo vio la traducción al alemán (2026-10-28). Hoy lo
+    dice el `step` que deja el cierre."""
+
+    def setUp(self):
+        super().setUp()
+        from routers import tab2
+        self.tab2 = tab2
+        self.mkv = self.output_dir / "Peli.mkv"
+        self.mkv.write_bytes(b"x" * 4096)
+        self.addCleanup(tab2._mkv_quality_state.pop, "request_id", None)
+
+    def _reenviar(self, step, idioma):
+        import historial
+        import i18n
+        t = self.tab2
+        with patch.object(i18n, "idioma_activo", lambda: idioma):
+            t._mkv_quality_reset(file_name="Peli.mkv", audit_id="aaa")
+            t._mkv_quality_state["request_id"] = "r1"
+            motivo = (historial.motivo_cancelado() if step == "cancelled"
+                      else "dovi_tool rc=137")
+            t._mkv_quality_state_finalize_if("aaa", motivo, step=step)
+            return self.client.post("/api/mkv/quality-audit",
+                                    json={"file_path": str(self.mkv), "request_id": "r1"})
+
+    def test_cancelado_es_499_en_las_cuatro_lenguas(self):
+        for idioma in ("es", "en", "ca", "de"):
+            with self.subTest(idioma=idioma):
+                r = self._reenviar("cancelled", idioma)
+                self.assertEqual(r.status_code, 499, r.text)
+
+    def test_un_fallo_es_500(self):
+        for idioma in ("es", "de"):
+            with self.subTest(idioma=idioma):
+                r = self._reenviar("error", idioma)
+                self.assertEqual(r.status_code, 500, r.text)

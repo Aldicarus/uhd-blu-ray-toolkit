@@ -125,7 +125,7 @@ class TestLaTablaYElMarcadoCuadran(unittest.TestCase):
         es responsabilidad de este test. Una clave que falte NO da error:
         `tr()` devuelve la clave y se pinta en crudo.
         """
-        for lg in ("es", "en", "ca"):
+        for lg in ("es", "en", "ca", "de"):
             cat = json.loads((APP_DIR / "static" / "i18n" / f"{lg}.json")
                              .read_text(encoding="utf-8"))
             for s in self.tabla:

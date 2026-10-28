@@ -3000,7 +3000,7 @@
  {
   "id": "T4/tab2-15 la temporada muda no se completa",
   "fichero": "app/services/tmdb.py",
-  "viejo": "    if params.get(\"language\") == _LOCALE_RESPALDO or not any(",
+  "viejo": "    if params.get(\"language\") == respaldo or not any(",
   "nuevo": "    if True or not any(",
   "modulos": [
    "test_los_servicios_no_mezclan_origenes"
@@ -3009,8 +3009,8 @@
  {
   "id": "T4/tab2-15b solo se completan los episodios sin nombre",
   "fichero": "app/services/tmdb.py",
-  "viejo": "            if not (e.get(campo) or \"\").strip() and es.get(campo):",
-  "nuevo": "            if es.get(campo):",
+  "viejo": "            if not (e.get(campo) or \"\").strip() and otro.get(campo):",
+  "nuevo": "            if otro.get(campo):",
   "modulos": [
    "test_los_servicios_no_mezclan_origenes"
   ]
@@ -6519,6 +6519,69 @@
   "nuevo": "            and True):",
   "modulos": [
    "test_mkv_analyze"
+  ]
+ },
+ {
+  "id": "T8D-1 la frase de «no aparece en la hoja» vuelve a ir pegada al año",
+  "fichero": "app/static/tab3.js",
+  "viejo": "    html += ' ' + tr('tab3.no_aparece_en_la_hoja_de', {p1: data.sheet_rows_loaded || 0});",
+  "nuevo": "    html += tr('tab3.no_aparece_en_la_hoja_de', {p1: data.sheet_rows_loaded || 0});",
+  "modulos": [
+   "test_recomendacion_sin_coincidencia"
+  ]
+ },
+ {
+  "id": "T8D-2 el lang del documento se queda en el del HTML",
+  "fichero": "app/static/i18n.js",
+  "viejo": "    document.documentElement.lang = _idioma;",
+  "nuevo": "    void 0;",
+  "modulos": [
+   "test_i18n_motor"
+  ]
+ },
+ {
+  "id": "T8D-3 una ficha alemana muda se repite en castellano, no en inglés",
+  "fichero": "app/services/tmdb.py",
+  "viejo": "_RESPALDO_POR_LOCALE = {\"de-DE\": \"en-US\"}",
+  "nuevo": "_RESPALDO_POR_LOCALE = {}",
+  "modulos": [
+   "test_idioma_de_tmdb"
+  ]
+ },
+ {
+  "id": "T8D-4 el perfil de pistas alemán cae al castellano",
+  "fichero": "app/phases/phase_b.py",
+  "viejo": "    \"de\": (\"german\",),\n}",
+  "nuevo": "}",
+  "modulos": [
+   "test_perfil_de_idioma_de_pistas"
+  ]
+ },
+ {
+  "id": "T8D-5 un navegador alemán se detecta como inglés",
+  "fichero": "app/services/settings_store.py",
+  "viejo": "IDIOMAS = (\"es\", \"en\", \"ca\", \"de\")",
+  "nuevo": "IDIOMAS = (\"es\", \"en\", \"ca\")",
+  "modulos": [
+   "test_idioma_detectado"
+  ]
+ },
+ {
+  "id": "T8D-6 los números alemanes salen con los separadores ingleses",
+  "fichero": "app/i18n.py",
+  "viejo": ", \"de\": (\".\", \",\")}",
+  "nuevo": ", \"de\": (\",\", \".\")}",
+  "modulos": [
+   "test_numeros_en_su_idioma"
+  ]
+ },
+ {
+  "id": "T8D-7 el reenvío de un análisis cancelado vuelve a contestarse como un fallo",
+  "fichero": "app/routers/tab2.py",
+  "viejo": "        cancelado = st.get(\"step\") == \"cancelled\"",
+  "nuevo": "        cancelado = False",
+  "modulos": [
+   "test_contratos_de_cancelar_y_resultados"
   ]
  }
 ]

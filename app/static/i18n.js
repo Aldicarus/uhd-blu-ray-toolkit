@@ -19,19 +19,20 @@
 // pollers en marcha: recargar es una línea, es instantáneo y no deja mitades
 // en el idioma viejo. Cambiar de idioma no es algo que se haga cada minuto.
 
-/** Las tres. El orden es el del selector. */
+/** Los de la app. El orden es el del selector. */
 const IDIOMAS = [
   { codigo: 'es', nombre: 'Castellano' },
   { codigo: 'en', nombre: 'English' },
   { codigo: 'ca', nombre: 'Català' },
+  { codigo: 'de', nombre: 'Deutsch' },
 ];
 
 // El locale de `Intl`, que NO es el código del idioma: una fecha en inglés
-// pide `en-GB` y no `en-US` —el día antes del mes, como en las otras dos— y
-// los miles se separan igual en las tres. Había 16 `toLocaleDateString('es-ES')`
+// pide `en-GB` y no `en-US` —el día antes del mes, como en las demás— y
+// los miles se separan como en cada lengua. Había 16 `toLocaleDateString('es-ES')`
 // cableados, así que las fechas y las cifras seguían en formato español con la
 // app en inglés: no es texto, así que ningún guard de traducción lo veía.
-const LOCALES = { es: 'es-ES', en: 'en-GB', ca: 'ca-ES' };
+const LOCALES = { es: 'es-ES', en: 'en-GB', ca: 'ca-ES', de: 'de-DE' };
 
 /**
  * El locale del idioma activo, para `toLocaleDateString` y compañía.
@@ -93,6 +94,15 @@ const TOKEN_I18N = (() => {
 const _SEMBRADO = (typeof globalThis !== 'undefined' && globalThis.__I18N) || null;
 let _catalogo = (_SEMBRADO && _SEMBRADO.catalogo) || {};
 let _idioma = (_SEMBRADO && _SEMBRADO.idioma) || IDIOMA_POR_DEFECTO;
+
+// El `lang` del documento sigue al idioma: lo leen los lectores de pantalla y
+// el corte de palabras del navegador, y estaba fijo en `es` en el HTML.
+function _fijarLangDelDocumento() {
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.lang = _idioma;
+  }
+}
+_fijarLangDelDocumento();
 // El nombre del idioma que manda en el perfil de pistas. Lo manda el
 // servidor con la siembra porque la tabla vive en `phase_b`: una réplica en
 // el JS se desincronizaría en silencio. Vacío si la siembra no llegó.
@@ -104,7 +114,7 @@ function idiomaDePistaPreferido() { return _PISTA_PREFERIDA; }
 // una vuelta de render se piden cientos, y un toast por cada una tapa la app.
 const _ausentes = new Set();
 
-/** El idioma activo (`'es'` | `'en'` | `'ca'`). */
+/** El idioma activo (`'es'` | `'en'` | `'ca'` | `'de'`). */
 function idiomaActivo() { return _idioma; }
 
 /** Las claves que se han pedido y no existen. Lo usa el guard de la suite. */
@@ -141,6 +151,7 @@ async function cargarIdioma(codigo, token = TOKEN_I18N) {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     _catalogo = await r.json();
     _idioma = pedido;
+    _fijarLangDelDocumento();
   } catch (e) {
     console.error('[i18n] no se pudo cargar el catálogo', pedido, e);
     if (pedido !== IDIOMA_POR_DEFECTO) return cargarIdioma(IDIOMA_POR_DEFECTO, token);

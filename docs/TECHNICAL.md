@@ -205,7 +205,7 @@ Characters that NTFS/SMB forbid (`/\\:*?"<>|`) are sanitised; UTF-8 accents are 
 
 ### Automatic selection rules
 
-**Audio:** the app's language and the original version (VO). With the app in Spanish, that is Spanish + VO; in English, English + VO; in Catalan, Catalan + Spanish + VO. For each language, the highest-quality track is picked (TrueHD Atmos > DD+ Atmos > DTS-HD MA > DTS > DD). The first language of the profile is the default track. The `(DCP 9.1.6)` tag goes only on the Spanish TrueHD Atmos track.
+**Audio:** the app's language and the original version (VO). With the app in Spanish, that is Spanish + VO; in English, English + VO; in Catalan, Catalan + Spanish + VO; in German, German + VO. For each language, the highest-quality track is picked (TrueHD Atmos > DD+ Atmos > DTS-HD MA > DTS > DD). The first language of the profile is the default track. The `(DCP 9.1.6)` tag goes only on the Spanish TrueHD Atmos track.
 
 **Subtitles:** forced subtitles are detected by packet count and by the Blu-ray block structure. Inclusion order: forced in the preferred language → full in the VO → full in the preferred language → forced in the VO → full in English (if the VO is not English). When there is no audio track in the preferred language, the default subtitle becomes the full one instead of the forced one.
 
@@ -453,7 +453,7 @@ Same frame as the other tabs: a project column, navy sub-tabs, stacked cards and
 - **Tools:** MKVToolNix 103 (mkvmerge, mkvpropedit, mkvextract), MediaInfo 26.10, ffmpeg/ffprobe 7.1.5 (BtbN static build), dovi_tool 2.3.4 — all pinned in the Dockerfile, and each bump goes through the real-file regression (`app/tools/regresion_real.py`)
 - **ISO access:** direct loop mount (`mount -t udf -o ro,loop`) — requires `privileged: true` in Docker
 - **External integrations:** TMDb (posters/synopses/episodes) and the DoviTools repository link — **included, they work out of the box**; the Google API key (Drive v3 + Sheets v4 / openpyxl) is the only thing to configure, and it unlocks the repository
-- **Languages:** the interface, the server's log and the manual are available in English, Spanish and Catalan
+- **Languages:** the interface, the server's log and the manual are available in English, Spanish, Catalan and German
 
 ## Project structure
 

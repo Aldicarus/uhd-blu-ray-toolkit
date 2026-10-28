@@ -36,8 +36,8 @@ class TestElParserDeAcceptLanguage(unittest.TestCase):
         from services.settings_store import detectar_idioma
         return detectar_idioma(cabecera)
 
-    def test_los_tres_idiomas_por_su_prefijo(self):
-        """`es-MX` y `ca-valencia` caen donde tienen que caer."""
+    def test_los_idiomas_de_la_app_por_su_prefijo(self):
+        """`es-MX`, `ca-valencia` y `de-AT` caen donde tienen que caer."""
         for cabecera, esperado in (
                 ("es-ES,es;q=0.9,en;q=0.8", "es"),
                 ("es-419", "es"),
@@ -46,13 +46,17 @@ class TestElParserDeAcceptLanguage(unittest.TestCase):
                 ("ca-valencia", "ca"),
                 ("en-GB,en;q=0.9", "en"),
                 ("en-US", "en"),
+                ("de-DE,de;q=0.9,en;q=0.8", "de"),
+                ("de-AT", "de"),
+                ("de-CH,de;q=0.9", "de"),
         ):
             with self.subTest(cabecera=cabecera):
                 self.assertEqual(self._d(cabecera), esperado)
 
     def test_el_resto_es_ingles(self):
-        """La decisión del usuario: quien pide alemán no lee castellano."""
-        for cabecera in ("de-DE", "it-IT,it;q=0.9", "fr-FR,fr;q=0.9",
+        """La decisión del usuario: quien pide italiano no lee castellano.
+        (Hasta el 2026-10-28 el alemán también caía aquí.)"""
+        for cabecera in ("it-IT,it;q=0.9", "fr-FR,fr;q=0.9",
                          "zh-CN,zh;q=0.9", "pt-BR", "ja"):
             with self.subTest(cabecera=cabecera):
                 self.assertEqual(self._d(cabecera), "en")
@@ -64,6 +68,7 @@ class TestElParserDeAcceptLanguage(unittest.TestCase):
         self.assertEqual(self._d("fr;q=0.9,es;q=0.8,en;q=0.7"), "es")
         self.assertEqual(self._d("en;q=0.1,es;q=0.9"), "es")
         self.assertEqual(self._d("es;q=0.1,en;q=0.9"), "en")
+        self.assertEqual(self._d("fr;q=0.9,de;q=0.8,en;q=0.7"), "de")
 
     def test_una_q_a_cero_no_pide_ese_idioma(self):
         """`q=0` es un rechazo explícito, no una preferencia baja."""
@@ -80,7 +85,7 @@ class TestElParserDeAcceptLanguage(unittest.TestCase):
         """Esto lo consume el script BLOQUEANTE del catálogo."""
         for cabecera in ("xx-YY;q=zzz", ";;;", "q=1", "es;;q", ",,,"):
             with self.subTest(cabecera=cabecera):
-                self.assertIn(self._d(cabecera), (None, "es", "en", "ca"))
+                self.assertIn(self._d(cabecera), (None, "es", "en", "ca", "de"))
 
 
 class DetectaCase(unittest.TestCase):

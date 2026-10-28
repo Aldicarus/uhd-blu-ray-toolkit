@@ -1168,7 +1168,6 @@
   "tab2.aplicando_cambios_con_mkvpropedit": "S'estan aplicant els canvis amb mkvpropedit…",
   "tab2.apply_interrumpido_por_reinicio": "L'operació s'ha interromput per un reinici del servidor. El destí parcial s'ha esborrat ({gb} GB alliberats). Torna a aplicar els canvis sobre {fichero}.",
   "tab2.cambios_aplicados_correctamente": "Canvis aplicats correctament",
-  "tab2.cancelado": "Cancel·lat",
   "tab2.copiado_de_total": "{copiado} de {total}",
   "tab2.copia_a_output": "Còpia a Output · {p1}",
   "tab2.copia_cancelada_por_el_usuario": "Còpia cancel·lada per l'usuari",

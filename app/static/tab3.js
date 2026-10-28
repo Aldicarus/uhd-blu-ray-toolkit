@@ -1361,7 +1361,7 @@ function _cmv40RenderRecommendation(data, containerId) {
     if (data.title_en && data.title_en !== data.input_title) {
       html += ` (TMDb: <em>${escHtml(data.title_en)}</em>)`;
     }
-    html += tr('tab3.no_aparece_en_la_hoja_de', {p1: data.sheet_rows_loaded || 0});
+    html += ' ' + tr('tab3.no_aparece_en_la_hoja_de', {p1: data.sheet_rows_loaded || 0});
     html += `</div>`;
     if (!data.tmdb_configured) {
       html += `<div class="cmv40-rec-footer"><span data-icono="aviso"></span> <span data-i18n="tab3.tmdb_no_esta_disponible_sin_clave"></span></div>`;

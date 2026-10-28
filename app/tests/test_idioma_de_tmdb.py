@@ -32,9 +32,10 @@ class _TmdbFalso:
     """Registra cada petición y contesta lo que se le diga.
 
     `vacios` son los campos que la respuesta deja en blanco cuando el
-    `language` NO es `es-ES`: así se reproduce lo que TMDb hace de verdad
-    con el catalán —contestar 200 con los campos traducibles vacíos— sin lo
-    cual el respaldo no se puede comprobar.
+    `language` no es uno de los dos respaldos (`es-ES`, `en-US`): así se
+    reproduce lo que TMDb hace de verdad con el catalán —contestar 200 con
+    los campos traducibles vacíos— sin lo cual el respaldo no se puede
+    comprobar.
     """
 
     def __init__(self, cuerpo: dict, vacios: tuple[str, ...] = ()):
@@ -58,7 +59,7 @@ class _TmdbFalso:
                 params = params or {}
                 fake.peticiones.append((url, dict(params)))
                 datos = dict(fake.cuerpo)
-                if params.get("language") != "es-ES":
+                if params.get("language") not in ("es-ES", "en-US"):
                     for c in fake.vacios:
                         datos[c] = [] if isinstance(datos.get(c), list) else ""
                 return _Resp(datos)
@@ -93,6 +94,10 @@ class IdiomaDeTmdb(unittest.TestCase):
         os.environ.pop("HDO_IDIOMA", None)
         tmdb._cache = None
         self.addCleanup(setattr, tmdb, "_cache", None)
+        # Los ajustes leídos del `app_settings.json` temporal se quedan en
+        # memoria: sin esto, el módulo siguiente heredaba el idioma del último
+        # caso de este («capítols: 8, llegits del disc» en un test castellano).
+        self.addCleanup(setattr, st, "_cache", None)
         i18n.limpiar_cache()
         self.addCleanup(i18n.limpiar_cache)
 
@@ -106,7 +111,7 @@ class IdiomaDeTmdb(unittest.TestCase):
     # ── El locale ─────────────────────────────────────────────────────
     def test_cada_idioma_pide_su_locale(self):
         for idioma, locale in (("es", "es-ES"), ("en", "en-US"),
-                               ("ca", "ca-ES")):
+                               ("ca", "ca-ES"), ("de", "de-DE")):
             with self.subTest(idioma=idioma):
                 self._idioma(idioma)
                 self.assertEqual(self.tmdb.locale_tmdb(), locale)
@@ -147,6 +152,14 @@ class IdiomaDeTmdb(unittest.TestCase):
             "ca", {"id": 1234, "title": "Blade Runner 2049",
                    "overview": "Un jove blade runner."}, vacios=("overview",))
         self.assertEqual(f.idiomas, ["ca-ES", "es-ES"])
+        self.assertTrue(res.overview)
+
+    def test_una_ficha_alemana_muda_se_repite_en_ingles(self):
+        """Al lector alemán le sirve antes el inglés que el castellano."""
+        f, res = self._detalles(
+            "de", {"id": 1234, "title": "Blade Runner 2049",
+                   "overview": "Ein junger Blade Runner."}, vacios=("overview",))
+        self.assertEqual(f.idiomas, ["de-DE", "en-US"])
         self.assertTrue(res.overview)
 
     def test_con_ficha_en_el_idioma_pedido_no_se_repite(self):

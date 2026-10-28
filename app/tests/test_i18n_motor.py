@@ -143,7 +143,7 @@ class TestElIdiomaEsUnAjusteGlobal(unittest.TestCase):
         self.st.update_idioma("en")
         d = self.st.get_public_settings()["idioma"]
         self.assertEqual(d["activo"], "en")
-        self.assertEqual(d["disponibles"], ["es", "en", "ca"])
+        self.assertEqual(d["disponibles"], ["es", "en", "ca", "de"])
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -387,6 +387,20 @@ class TestElMotorDelNavegador(unittest.TestCase):
         self.assertEqual(r["texto"], "Close")
         self.assertIsNone(r["pedido"],
                           "se volvió a pedir el catálogo que ya estaba sembrado")
+
+    def test_el_lang_del_documento_sigue_al_idioma(self):
+        """`<html lang="es">` iba fijo en el HTML: con la app en alemán, el
+        lector de pantalla y el corte de palabras creían leer castellano."""
+        r = self.corre("""
+          console.log(JSON.stringify({
+            lang: document.documentElement.lang, locale: localeActual(),
+          }));
+        """, semilla="""
+          globalThis.document = {documentElement: {lang: 'es'}};
+          globalThis.__I18N = {idioma: 'de', catalogo: {'ui.cerrar': 'Schließen'}};
+        """)
+        self.assertEqual(r["lang"], "de")
+        self.assertEqual(r["locale"], "de-DE")
 
     def test_sin_siembra_el_respaldo_sigue_pidiendo_el_catalogo(self):
         """La rama que se conserva: un arnés sin `__I18N`, o un fallo al

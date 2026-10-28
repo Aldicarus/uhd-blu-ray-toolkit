@@ -4312,15 +4312,15 @@ versión) y las 46 comprobaciones de su Fase C en verde.
 ### La auditoría de la suite del 2026-10-17: lo que cambió en cómo se prueba
 
 Con **38 mutaciones** propuestas por Codex aplicadas A LA VEZ, los 3.117 tests
-de entonces seguían en verde. Hoy hay **723 mutaciones** en
+de entonces seguían en verde. Hoy hay **730 mutaciones** en
 `app/tools/mutaciones.json` —las 42 de la auditoría que siguen aplicando, más
 una por cada arreglo que salió de ella, las de la pestaña Multiplexar, las
 `T5R-*` de la pasada de registro a toda la app, las `T2R-*`/`T2F-*`/`T4A-*`
 de la reubicación de los MKV movidos y del análisis del MKV multiplexado,
 las `T5X-*` de la revisión de Codex previa a la v3.5.0, las `T7*` de lo
 que enseñaron las capturas de la portada (los comandos citados del log, los
-números en su idioma, textos y dos piezas de la interfaz) y las `T6V-*` de la
-regresión real y de la base 24.04— y
+números en su idioma, textos y dos piezas de la interfaz), las `T6V-*` de la
+regresión real y de la base 24.04 y las `T8D-*` del alemán— y
 `app/tools/mutar.py` las caza todas. Lo que se aprendió, por orden de cuántas veces se repitió:
 
 - **Se probaba que algo PASA, no la frontera en que deja de pasar.** Umbrales
@@ -4805,7 +4805,7 @@ verde. La aguja se compone en ejecución.
 
 ---
 
-## La app habla tres idiomas: castellano, inglés y catalán
+## La app habla cuatro idiomas: castellano, inglés, catalán y alemán
 
 El idioma es un **ajuste global** en `app_settings.json` — no hay usuarios ni
 cookies — y se elige en ⚙︎ Configuración. Cambiarlo recarga la página, que es
@@ -4835,12 +4835,13 @@ ponerlo en el `.env` es tan deliberado como pulsar el botón.
 - **`None` no es castellano.** Sin cabecera —un healthcheck, un `curl`— no se
   fija nada, y el siguiente navegador todavía puede detectarse. Un `*` tampoco
   cuenta: significa «cualquiera», no «el mío».
-- **El resto es inglés** (decisión del usuario): `es-*` y `ca-*` caen en su
-  idioma por prefijo, y una cabecera que pide italiano o alemán es una
+- **El resto es inglés** (decisión del usuario): `es-*`, `ca-*` y `de-*` caen
+  en su idioma por prefijo, y una cabecera que pide italiano o francés es una
   petición de verdad — lo que esa persona no lee es castellano, así que darle
-  el default derrotaría el motivo de detectar.
+  el default derrotaría el motivo de detectar. (Hasta que llegó el alemán, el
+  2026-10-28, también caía aquí.)
 - **Se respeta la `q`, no el orden**: `fr;q=0.9, es;q=0.8` pide francés antes
-  que castellano, y de los tres que hay gana el castellano.
+  que castellano, y de los que hay gana el castellano.
 
 `detectar_idioma()` es **pura** y `test_idioma_detectado.py` la fija con las
 cinco decisiones verificadas por mutación, más cuatro tests que llaman al
@@ -4870,9 +4871,9 @@ diseño anterior, que es la peor clase: el próximo lector se lo cree.
 
 | dónde | qué |
 |---|---|
-| `app/static/i18n/{es,en,ca}.json` | la interfaz — **1.644 claves** |
-| `app/i18n/{es,en,ca}.json` | el servidor: log, errores HTTP, etiquetas de paso — **1.010** |
-| `app/static/i18n/manual/{es,en,ca}.json` | el manual CMv4.0, 7 secciones de HTML |
+| `app/static/i18n/{es,en,ca,de}.json` | la interfaz — **2.206 claves** |
+| `app/i18n/{es,en,ca,de}.json` | el servidor: log, errores HTTP, etiquetas de paso — **1.391** |
+| `app/static/i18n/manual/{es,en,ca,de}.json` | el manual CMv4.0, 7 secciones de HTML |
 | `app/i18n/REGISTRO.md` | tono, registro y glosario. **Es normativo**: lo comprueba un test |
 
 ### Cómo se escribe texto nuevo
@@ -5190,6 +5191,71 @@ guard de ortografía las mira desde ahora; el catalán del manual pasa a
 «l'RPU». Las 372 frases del golden que dejaron de existir van con su motivo en
 `tests/golden_castellano_reescrito.json`.
 
+### El alemán, la cuarta lengua (2026-10-28)
+
+Lo pidió el usuario antes de tagear la v1.0. En el código cambió poco, porque
+casi todo salía ya de una sola lista:
+
+- `i18n.IDIOMAS` y `settings_store.IDIOMAS` llevan `de`, y con eso la
+  detección manda `de-*` al alemán (hasta entonces caía al inglés).
+- Separadores alemanes en `i18n.numero` (punto de miles, coma decimal) y
+  `de-DE` en `localeActual()`.
+- **TMDb cae al inglés, no al castellano**, cuando no tiene la ficha en
+  alemán (`tmdb._respaldo_de`): es lo que su lector entiende antes. El
+  respaldo era uno solo, `es-ES`, pensado para el catalán.
+- **El perfil de pistas alemán es `("german",)`**: alemán y el VO.
+- La bandera (negro, rojo y oro) y el nombre en el selector, «Deutsch».
+- **El `<html lang>` sigue al idioma** (`_fijarLangDelDocumento`): iba fijo
+  en `es`, también con el inglés y el catalán, y lo leen los lectores de
+  pantalla y el corte de palabras.
+
+La traducción —2.206 claves de la interfaz, 1.391 del servidor y el manual,
+unos 365.000 caracteres— la hicieron once traductores en paralelo, cada uno
+con un trozo y **la misma guía**. La guía sola no basta para la coherencia
+entre trozos; lo que la sostuvo fue lo que ya existía, ahora con `de`: «el
+mismo castellano no tiene dos traducciones» y «una cita a un rótulo usa el
+rótulo traducido». Al unir salieron tres familias que ningún trozo podía ver
+desde dentro, y las tres se resolvieron en la unión:
+
+- **el género** de lo que no es alemán: cuatro trozos escribieron «das RPU»
+  y los demás «die RPU» (*die* CPU), y unos pocos «die EL» donde el resto
+  decía «der EL» (*der* Layer). Se corrigió frase a frase, con sus artículos, adjetivos
+  y pronombres;
+- **la jerga en minúscula** («das bin», «der merge»): la guía pedía el
+  término idéntico. En alemán todo sustantivo va con mayúscula y «das bin»
+  se lee como el verbo, así que se capitalizó al unir —salvo código,
+  ficheros, extensiones y subcomandos— y el glosario compara esa jerga sin
+  distinguir mayúsculas, solo en alemán;
+- **el nombre de la sincronía**: la interfaz de CMv4.0 dice «Sync» («Phase
+  D · Sync prüfen») y el log decía «Synchronität», así que la Fase E salía
+  con dos nombres. CMv4.0 es «Sync» y Multiplexar, «Synchronität».
+
+Las decisiones están en `REGISTRO.md` («Alemán»), y la trampa que más se
+cuela tiene su test: *Synchronisation* es el DOBLAJE.
+
+**Los traductores encontraron dos fallos de código**, que no eran de la
+traducción:
+
+- la recomendación de un título que la hoja de DoviTools no tiene pegaba
+  «no aparece…» al año («(2020)no aparece») en las cuatro lenguas, porque la
+  frase va con `html += tr(…)` detrás de una plantilla. Ningún guard lo veía
+  —`TestLosFragmentosSeCosenBien` busca dos `tr()` pegados—; lo fija
+  `test_recomendacion_sin_coincidencia`, que pinta la recomendación en node;
+- re-enviar el POST de un análisis extendido cancelado decidía 499 o 500
+  **leyendo el motivo traducido** (`tr('tab2.cancelado') in msg`): en alemán
+  «Abgebrochen» no es una subcadena de «Vom Benutzer abgebrochen», y una
+  cancelación se contestaba como un error del servidor. Es la clase de
+  «Nadie detecta una fase leyendo prosa del log»; hoy lo decide el `step`
+  que deja el cierre, y `test_contratos_de_cancelar_y_resultados` lo prueba
+  en las cuatro lenguas.
+
+Los tests que enumeraban `("es", "en", "ca")` a mano —una veintena— cubren
+ya el alemán donde la comprobación es genérica (catálogos completos,
+parámetros, pantallas en Chrome, perfil de pistas, números, TMDb, la señal
+de fase); los que fijan una regla de una lengua concreta (el infinitivo del
+catalán, la ortografía de EE. UU.) siguen siendo de esa lengua. Mutaciones:
+`T8D-*`.
+
 ### Un regex no puede delimitar una construcción anidada
 
 Es el error que se repitió **cuatro veces** en este subsistema, y conviene
@@ -5363,6 +5429,12 @@ tiene ninguna palabra que pluralice con `n` —escribía «not foundn»— y el
 catalán tampoco cuando el plural es irregular (`dia` → **dies**). Esos casos
 se parten en dos claves `_uno`/`_varios`. Eran los tres únicos del repo.
 
+El alemán tropieza con el `s` de siempre: «Projekt», «Datei» y «Folge» no
+hacen el plural con -s. En vez de partir una docena de claves en las cuatro
+lenguas, el sufijo va con una palabra que sí lo admite —«{n} Rip{p2}»,
+«{n} Upgrade{p2}», «{n} File{p2}», «{n} Job{p2}»—, como hizo el inglés con
+«MKV{p3}». Si algún día molesta, la salida es la de arriba.
+
 ### El idioma decide con qué pistas nace un proyecto
 
 **Esto no es traducción: cambia el contenido del MKV**, y por eso lleva sus
@@ -5381,6 +5453,10 @@ añade siempre, y el inglés entra como red en los subtítulos.
 | `es` | `spanish` |
 | `en` | `english` |
 | `ca` | `catalan`, `spanish` |
+| `de` | `german` |
+
+El alemán (2026-10-28) va solo, como el castellano y el inglés: los UHD
+Blu-ray que se venden en Alemania traen casi siempre la pista alemana.
 
 Las seis decisiones, cerradas con el usuario el 2026-09-15:
 

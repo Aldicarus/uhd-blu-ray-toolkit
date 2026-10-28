@@ -2242,6 +2242,10 @@ const BANDERAS = {
   ca: '<rect width="24" height="18" fill="#fcdd09"/>'
     + '<path d="M0 3.1 H24 M0 7.4 H24 M0 11.7 H24 M0 16 H24" '
     + 'stroke="#da121a" stroke-width="2.15"/>',
+  // Negro, rojo y oro.
+  de: '<rect width="24" height="18" fill="#000"/>'
+    + '<rect y="6" width="24" height="6" fill="#dd0000"/>'
+    + '<rect y="12" width="24" height="6" fill="#ffce00"/>',
 };
 
 /** La bandera de un idioma, o `null` si no la tenemos.

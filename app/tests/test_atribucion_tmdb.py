@@ -43,7 +43,7 @@ from frontend_sources import html, stub_catalogo_es  # noqa: E402
 INDEX = APP_DIR / "static" / "index.html"
 AVISOS = RAIZ / "THIRD-PARTY-NOTICES.md"
 LOGO = APP_DIR / "static" / "img" / "tmdb.svg"
-CATALOGOS = [APP_DIR / "static" / "i18n" / f"{l}.json" for l in ("es", "en", "ca")]
+CATALOGOS = [APP_DIR / "static" / "i18n" / f"{l}.json" for l in ("es", "en", "ca", "de")]
 
 # Palabra por palabra. Cambiar una coma aquí es cambiar el requisito, así
 # que si un test falla por esto lo que hay que revisar es la fuente, no la

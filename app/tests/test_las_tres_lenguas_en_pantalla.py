@@ -252,7 +252,7 @@ AJUSTES = {
   "sheet_url": "https://docs.google.com/spreadsheets/d/x",
   "sheet_is_default": True,
   "drive_folder": {"configured": True, "source": "default", "url": "https://drive.google.com/x"},
-  "idioma": {"activo": "en", "disponibles": ["es", "en", "ca"]},
+  "idioma": {"activo": "en", "disponibles": ["es", "en", "ca", "de"]},
   "aviso_fin": True, "aviso_sonido": False,
   "update_ignored_version": "",
 }
@@ -1123,7 +1123,7 @@ class TestLasPantallasRealesEnLosTresIdiomas(unittest.TestCase):
         es = json.loads((base / "es.json").read_text(encoding="utf-8"))
         en = json.loads((base / "en.json").read_text(encoding="utf-8"))
         cls.solo_es = _palabras(es) - _palabras(en)
-        cls.vistas = {l: _pintar(l) for l in ("es", "en", "ca")}
+        cls.vistas = {l: _pintar(l) for l in ("es", "en", "ca", "de")}
 
     def _todo(self, idioma: str):
         """Cada pantalla, con su texto y sus atributos en una sola cadena."""
@@ -1136,7 +1136,7 @@ class TestLasPantallasRealesEnLosTresIdiomas(unittest.TestCase):
     def test_las_pantallas_se_pintan_sin_fallar(self):
         """Una pantalla que lanza no enseña nada, y eso es lo peor que puede
         pasarle a un panel: el usuario ve un hueco, no un error."""
-        for idioma in ("es", "en", "ca"):
+        for idioma in ("es", "en", "ca", "de"):
             with self.subTest(idioma=idioma):
                 self.assertEqual(self.vistas[idioma]["fallos"], {})
                 self.assertEqual(self.vistas[idioma]["errores"], [])
@@ -1147,7 +1147,7 @@ class TestLasPantallasRealesEnLosTresIdiomas(unittest.TestCase):
         y su texto lo escribe `updateTrackCounts`: el pintor del catálogo la
         repintaba al insertarse el panel y se quedaba en «0 pistas» con las
         pistas listadas debajo. Salía así en la captura vieja de la portada."""
-        for idioma in ("es", "en", "ca"):
+        for idioma in ("es", "en", "ca", "de"):
             with self.subTest(idioma=idioma):
                 cat = json.loads((APP_DIR / "static" / "i18n" / f"{idioma}.json").read_text(encoding="utf-8"))
                 patron = re.escape(cat["tab1.n_incluidas_n_descartadas"])
@@ -1166,7 +1166,7 @@ class TestLasPantallasRealesEnLosTresIdiomas(unittest.TestCase):
         verde con el chip colgando de una condición que nunca es cierta.
         """
         base = APP_DIR / "static" / "i18n"
-        for idioma in ("es", "en", "ca"):
+        for idioma in ("es", "en", "ca", "de"):
             rotulo = json.loads(
                 (base / f"{idioma}.json").read_text(encoding="utf-8")
             )["tab2.hecho_con_esta_app"]
@@ -1177,7 +1177,7 @@ class TestLasPantallasRealesEnLosTresIdiomas(unittest.TestCase):
 
     def test_no_se_ve_ninguna_clave_del_catalogo(self):
         """`tab3.fase_h` en pantalla es lo primero que el usuario reportó."""
-        for idioma in ("es", "en", "ca"):
+        for idioma in ("es", "en", "ca", "de"):
             malas = []
             for nombre, txt in self._todo(idioma):
                 claves = sorted(set(self.CLAVE.findall(txt)))
@@ -1203,7 +1203,7 @@ class TestLasPantallasRealesEnLosTresIdiomas(unittest.TestCase):
                 self.assertIn("/api/sessions/", vista.get("usadas") or [])
 
     def test_no_se_ve_ningun_undefined_ni_hueco_sin_resolver(self):
-        for idioma in ("es", "en", "ca"):
+        for idioma in ("es", "en", "ca", "de"):
             malas = [f"{n}: {sorted(set(self.RARO.findall(t)))}"
                      for n, t in self._todo(idioma) if self.RARO.search(t)]
             with self.subTest(idioma=idioma):
@@ -1289,6 +1289,10 @@ NI_TRADUCIBLE_NI_FUGA = {
     # lenguas, como «Blu-ray» o «Dolby Vision». Sale desde que el cromo de la
     # app se mide: es la cabecera.
     "toolkit": "el nombre de la app, que no se traduce",
+    # El selector de idioma escribe cada idioma en su propia lengua, para que
+    # lo encuentre quien no entiende el idioma actual: «Deutsch» se lee igual
+    # con la app en castellano y en inglés.
+    "deutsch": "el nombre del alemán en el selector de idioma, en su lengua",
     # ── Acerca de: licencias y avisos de terceros ─────────────────────────
     # Las frases de TMDb y MediaArea son el texto que sus licencias exigen
     # LITERALMENTE: traducirlas las invalida, así que no llevan `data-i18n`

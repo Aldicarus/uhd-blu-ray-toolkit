@@ -35,7 +35,8 @@ class TestElFormateador(unittest.TestCase):
     def test_los_separadores_de_cada_idioma(self):
         casos = {"es": ("2.251", "11,60", "1.234,5"),
                  "ca": ("2.251", "11,60", "1.234,5"),
-                 "en": ("2,251", "11.60", "1,234.5")}
+                 "en": ("2,251", "11.60", "1,234.5"),
+                 "de": ("2.251", "11,60", "1.234,5")}
         for idioma, (entero, decimal, ambos) in casos.items():
             with self.subTest(idioma=idioma), _en(idioma):
                 self.assertEqual(i18n.numero(2251), entero)
@@ -59,7 +60,8 @@ class TestLosSitiosQueLoUsan(unittest.TestCase):
         analisis = {"hdr": {"hdr_format": "HDR10"}, "dovi": {
             "profile": 7, "el_type": "FEL", "quality_l8_unique_count": 2251,
             "quality_l8_max_delta": 606}}
-        for idioma, esperado in (("en", "2,251"), ("es", "2.251"), ("ca", "2.251")):
+        for idioma, esperado in (("en", "2,251"), ("es", "2.251"), ("ca", "2.251"),
+                                 ("de", "2.251")):
             with self.subTest(idioma=idioma), _en(idioma):
                 textos = " ".join(f["texto"] for f in lectura_de(analisis))
                 self.assertIn(esperado, textos)

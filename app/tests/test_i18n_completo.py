@@ -39,7 +39,7 @@ _CHROME_CANDIDATOS = [
 ]
 CHROME = next((c for c in _CHROME_CANDIDATOS if c and Path(c).exists()), None)
 
-IDIOMAS = ("es", "en", "ca")
+IDIOMAS = ("es", "en", "ca", "de")
 
 # Texto castellano que se queda en el código A PROPÓSITO, con su motivo.
 # Ampliarla es una decisión: si una frase nueva aparece sin entrada aquí, el

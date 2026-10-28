@@ -113,11 +113,11 @@ class TestLaFaseNombraLoQueHace(unittest.TestCase):
     def test_ninguna_etapa_promete_solo_mover(self):
         """«Mover el MKV» sería falso por la rama merge: son dos
         `extract-rpu` completos antes de mover nada."""
-        for idioma in ("es", "en", "ca"):
+        for idioma in ("es", "en", "ca", "de"):
             etapa = i18n_srv._catalogo(idioma)['relato.etapa_validate'].lower()
             self.assertTrue(
-                # «comprovar» en catalán va con v.
-                any(v in etapa for v in ("comprob", "comprov", "check")),
+                # «comprovar» en catalán va con v; en alemán, «prüfen».
+                any(v in etapa for v in ("comprob", "comprov", "check", "prüf")),
                 f"{idioma}: la etapa dejó de decir que comprueba → {etapa}")
 
 

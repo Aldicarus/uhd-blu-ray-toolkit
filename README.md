@@ -160,7 +160,7 @@ Dolby Vision carries a set of instructions that tells each display how to fit th
 - **The browser tab tells you when a long job finishes**, even when you are working in another tab.
 - **A card for every film**, with its poster, synopsis and TMDb rating.
 - **A manual built into the app** explains Dolby Vision and its profiles, the DoviTools sheet and repository, and every route the upgrade can take.
-- **English, Spanish and Catalan**, picked up from the browser the first time, and **light and dark mode**, following the system setting.
+- **English, Spanish, Catalan and German**, picked up from the browser the first time, and **light and dark mode**, following the system setting.
 
 ---
 

@@ -77,10 +77,11 @@ class TestElPerfilPorIdioma(unittest.TestCase):
         self.assertEqual(idiomas_preferidos("es"), ("spanish",))
         self.assertEqual(idiomas_preferidos("en"), ("english",))
         self.assertEqual(idiomas_preferidos("ca"), ("catalan", "spanish"))
+        self.assertEqual(idiomas_preferidos("de"), ("german",))
 
     def test_un_idioma_desconocido_cae_al_castellano(self):
         """Es el comportamiento de siempre, y el que no rompe nada."""
-        self.assertEqual(idiomas_preferidos("de"), ("spanish",))
+        self.assertEqual(idiomas_preferidos("pt"), ("spanish",))
         self.assertEqual(idiomas_preferidos(""), ("spanish",))
 
 
@@ -109,8 +110,17 @@ class TestAudio(unittest.TestCase):
         # El default va al PRIMER preferido que el disco trae.
         self.assertEqual([p.flag_default for p in inc], [True, False, False])
 
-    def test_el_frances_se_descarta_en_los_tres(self):
-        for cual in ("es", "en", "ca"):
+    def test_en_aleman_entran_el_aleman_y_el_vo(self):
+        """Un disco con la pista alemana: alemán primero, con el default, y el
+        VO detrás; ni el castellano ni el catalán."""
+        with idioma("de"):
+            inc, _ = _select_audio_tracks(DISCO_AUDIO + [audio("German", "DTS-HD Master Audio")],
+                                          "English", False)
+        self.assertEqual(_langs(inc), ["German", "English"])
+        self.assertEqual([p.flag_default for p in inc], [True, False])
+
+    def test_el_frances_se_descarta_en_todos(self):
+        for cual in ("es", "en", "ca", "de"):
             with self.subTest(idioma=cual):
                 self.assertNotIn("French", _langs(self._inc(cual)))
 
@@ -239,7 +249,7 @@ class TestElToggleDiceElPerfilDeVerdad(unittest.TestCase):
         front = APP_DIR / "static" / "i18n"
         srv = APP_DIR / "i18n"
         cls.cat = {}
-        for l in ("es", "en", "ca"):
+        for l in ("es", "en", "ca", "de"):
             cls.cat[l] = {
                 **json.loads((srv / f"{l}.json").read_text(encoding="utf-8")),
                 **json.loads((front / f"{l}.json").read_text(encoding="utf-8")),
@@ -257,7 +267,7 @@ class TestElToggleDiceElPerfilDeVerdad(unittest.TestCase):
         perfil — y aquí se comprueba que manda lo que toca.
         """
         from phases.phase_b import nombre_de_idioma
-        for lengua in ("es", "en", "ca"):
+        for lengua in ("es", "en", "ca", "de"):
             with self.subTest(idioma=lengua):
                 with idioma(lengua):
                     pref = nombre_de_idioma(idiomas_preferidos(lengua)[0])
@@ -297,7 +307,7 @@ class TestElToggleDiceElPerfilDeVerdad(unittest.TestCase):
                   "phase_b.nota_flag_forzados_castellano",
                   "tab1.sin_flag_forced_de_matroska_porque")
         fallos = []
-        for lengua in ("es", "en", "ca"):
+        for lengua in ("es", "en", "ca", "de"):
             for clave in claves:
                 v = self.cat[lengua][clave]
                 if "{pref}" not in v:
@@ -305,7 +315,7 @@ class TestElToggleDiceElPerfilDeVerdad(unittest.TestCase):
                     continue
                 # Y que no lo diga ADEMÁS escrito: sería decirlo dos veces y
                 # una de ellas mal.
-                for lang in ("spanish", "english", "catalan"):
+                for lang in ("spanish", "english", "catalan", "german"):
                     if lang in idiomas_preferidos(lengua):
                         continue
                     nombre = self.cat[lengua][f"idioma.{lang}"]
@@ -320,7 +330,7 @@ class TestElToggleDiceElPerfilDeVerdad(unittest.TestCase):
 
     def test_cada_etiqueta_nombra_los_idiomas_que_el_perfil_conserva(self):
         fallos = []
-        for lengua in ("es", "en", "ca"):
+        for lengua in ("es", "en", "ca", "de"):
             prefs = idiomas_preferidos(lengua)
             for clave, con_ingles in self.ETIQUETAS.items():
                 etiqueta = self.cat[lengua][clave]
@@ -341,12 +351,12 @@ class TestElToggleDiceElPerfilDeVerdad(unittest.TestCase):
         """El defecto reportado era éste: la inglesa decía «Spanish» y el
         perfil inglés no conserva el castellano."""
         fallos = []
-        for lengua in ("es", "en", "ca"):
+        for lengua in ("es", "en", "ca", "de"):
             prefs = idiomas_preferidos(lengua)
             for clave, con_ingles in self.ETIQUETAS.items():
                 etiqueta = self.cat[lengua][clave].lower()
                 permitidos = set(prefs) | ({"english"} if con_ingles else set())
-                for lang in ("spanish", "english", "catalan"):
+                for lang in ("spanish", "english", "catalan", "german"):
                     if lang in permitidos:
                         continue
                     nombre = self.cat[lengua][f"idioma.{lang}"].lower()

@@ -1168,7 +1168,6 @@
   "tab2.aplicando_cambios_con_mkvpropedit": "Applying the changes with mkvpropedit…",
   "tab2.apply_interrumpido_por_reinicio": "The operation was interrupted by a server restart. The partial destination was deleted ({gb} GB freed). Apply the changes to {fichero} again.",
   "tab2.cambios_aplicados_correctamente": "Changes applied",
-  "tab2.cancelado": "Canceled",
   "tab2.copiado_de_total": "{copiado} of {total}",
   "tab2.copia_a_output": "Copy to Output · {p1}",
   "tab2.copia_cancelada_por_el_usuario": "Copy canceled by the user",

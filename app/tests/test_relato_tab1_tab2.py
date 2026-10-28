@@ -516,6 +516,7 @@ class TestElRegistroDeLosRotulos(unittest.TestCase):
                r"\bpuedes\b", r"\btienes\b", r"\bespera\b"),
         "en": (r"\byou\b", r"\byour\b"),
         "ca": (r"\btu\b", r"\bvas\b", r"\bpots\b", r"\btens\b"),
+        "de": (r"\bdu\b", r"\bdich\b", r"\bdir\b", r"\bdein\w*"),
     }
     #: un rótulo que no cabe en un chip ya no es un rótulo
     TOPE = 32

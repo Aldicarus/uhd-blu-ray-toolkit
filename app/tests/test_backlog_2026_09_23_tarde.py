@@ -1349,7 +1349,7 @@ class TestLoRetiradoNoVuelveSolo(unittest.TestCase):
         self.assertIn("core.buscar_pelicula", cuerpo)
 
     def test_y_ninguna_clave_retirada_sigue_en_los_catalogos(self):
-        for idioma in ("es", "en", "ca"):
+        for idioma in ("es", "en", "ca", "de"):
             cat = json.loads((APP_DIR / "static" / "i18n" / f"{idioma}.json")
                              .read_text(encoding="utf-8"))
             for k in ("core.cambiar_pelicula", "tab2.comparar_con",

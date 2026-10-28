@@ -768,10 +768,10 @@ class TestMultiplexar(MuxCase):
             self.assertNotIn(palabra, texto, f"el log menciona «{palabra}»")
 
     def test_el_log_tampoco_la_anuncia_en_ingles_ni_en_catalan(self):
-        """El test de arriba lee el log en castellano; las otras dos lenguas
-        son las mismas claves, y se miran en el catálogo."""
-        prohibidas ={"es": ("firma", "firmad"), "en": ("signed", "signature"),
-                      "ca": ("signat", "signatura")}
+        """El test de arriba lee el log en castellano; las otras lenguas son
+        las mismas claves, y se miran en el catálogo."""
+        prohibidas = {"es": ("firma", "firmad"), "en": ("signed", "signature"),
+                      "ca": ("signat", "signatura"), "de": ("signiert", "signatur")}
         for idioma, palabras in prohibidas.items():
             cat = json.loads((APP_DIR / "i18n" / f"{idioma}.json").read_text(encoding="utf-8"))
             for k, v in cat.items():

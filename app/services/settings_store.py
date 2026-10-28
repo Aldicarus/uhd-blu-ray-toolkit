@@ -62,7 +62,7 @@ DEFAULT_SHEET_URL = (
 # pantalla sin esperar a una petición, pero manda la siembra del servidor.
 # Este de aquí es la fuente de verdad, y es quien decide en qué idioma
 # escribe el servidor sus propios mensajes.
-IDIOMAS = ("es", "en", "ca")
+IDIOMAS = ("es", "en", "ca", "de")
 IDIOMA_POR_DEFECTO = "es"
 
 # ── El tema ────────────────────────────────────────────────────────────
@@ -153,10 +153,10 @@ def idioma_elegido() -> bool:
 
 
 def detectar_idioma(accept_language: str | None) -> str | None:
-    """`Accept-Language` → `es` | `en` | `ca`, o `None` si no se puede decir.
+    """`Accept-Language` → `es` | `en` | `ca` | `de`, o `None` si no se puede decir.
 
     Función **pura**: no lee ni escribe nada. Devuelve `None` cuando la
-    cabecera falta, no se entiende o no pide ninguno de los tres, y eso NO es
+    cabecera falta, no se entiende o no pide nada, y eso NO es
     lo mismo que devolver el castellano — un healthcheck o un `curl` sin
     cabecera no deben dejar el idioma fijado para siempre.
 
@@ -164,7 +164,7 @@ def detectar_idioma(accept_language: str | None) -> str | None:
 
       · **se respeta la `q`**. `fr;q=0.9, en;q=0.8` pide francés antes que
         inglés, así que se recorre por preferencia y gana el primero de los
-        tres que aparezca — no el primero de la lista;
+        de la app que aparezca — no el primero de la lista;
       · **se compara por prefijo**, que es lo que hace que `es-MX`, `es-419`
         y `ca-valencia` caigan donde tienen que caer;
       · **`*` no cuenta**. Significa «cualquiera», no «el mío», y tomarlo por
@@ -173,7 +173,7 @@ def detectar_idioma(accept_language: str | None) -> str | None:
         script BLOQUEANTE del catálogo, y si revienta la app no carga.
 
     **Y el resto es INGLÉS** (decisión del usuario, 2026-09-16): una cabecera
-    que pide italiano, francés o alemán es una petición de verdad, y lo que
+    que pide italiano o francés es una petición de verdad, y lo que
     esa persona NO lee es castellano — darle el default derrotaría el motivo
     de detectar. Distinto de no tener cabecera, que no pide nada y se queda
     con el default. Esa es justo la diferencia entre devolver `'en'` y
@@ -204,7 +204,7 @@ def detectar_idioma(accept_language: str | None) -> str | None:
         prefijo = etiqueta.split("-")[0]
         if prefijo in IDIOMAS:
             return prefijo
-    return "en"                # pidió algo, y no es ninguno de los tres
+    return "en"                # pidió algo, y no es ninguno de la app
 
 
 def fijar_idioma_detectado(accept_language: str | None) -> str | None:

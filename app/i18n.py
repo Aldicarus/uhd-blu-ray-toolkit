@@ -40,7 +40,7 @@ from typing import Any
 
 _logger = logging.getLogger(__name__)
 
-IDIOMAS = ("es", "en", "ca")
+IDIOMAS = ("es", "en", "ca", "de")
 IDIOMA_POR_DEFECTO = "es"
 
 CATALOGOS_DIR = Path(__file__).resolve().parent / "i18n"
@@ -111,7 +111,7 @@ def t(clave: str, /, **params: Any) -> str:
 # Los separadores de cada idioma: (miles, decimal). En inglés «2.251» se lee
 # como dos coma algo, así que un número del log no puede llevar el punto de
 # miles castellano fijo, que es lo que hacían los formateadores del pipeline.
-_SEPARADORES = {"es": (".", ","), "ca": (".", ","), "en": (",", ".")}
+_SEPARADORES = {"es": (".", ","), "ca": (".", ","), "en": (",", "."), "de": (".", ",")}
 
 
 def numero(x: float, decimales: int = 0, *, miles: bool = True) -> str:

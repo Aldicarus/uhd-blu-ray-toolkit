@@ -35,7 +35,7 @@ def _catalogos():
     for donde, base in (("frontend", APP_DIR / "static" / "i18n"),
                         ("backend", APP_DIR / "i18n")):
         yield donde, {l: json.loads((base / f"{l}.json").read_text(encoding="utf-8"))
-                      for l in ("es", "en", "ca")}
+                      for l in ("es", "en", "ca", "de")}
 
 
 # Calcos y registro. Cada entrada con el motivo, porque el motivo es el guard:
@@ -99,7 +99,7 @@ class TestLaMismaFraseSeTraduceIgual(unittest.TestCase):
         # guard. Un test que para en el primer hallazgo esconde los demás.
         cruces = []
         for donde, cat in self.catalogos():
-            for otra in ("en", "ca"):
+            for otra in ("en", "ca", "de"):
                 por_es: dict[str, list[tuple[str, str]]] = {}
                 for k, es in cat["es"].items():
                     if k not in cat[otra]:
@@ -140,6 +140,69 @@ class TestElInglesNoLlevaCalcos(unittest.TestCase):
         malas = [f"[{donde}] `{k}`" for donde, cat in _catalogos()
                  for k, v in cat["en"].items() if "«" in v or "»" in v]
         self.assertEqual(malas, [], "\n  · ".join([""] + malas))
+
+
+class TestElAlemanNoLlevaCalcos(unittest.TestCase):
+    """Las decisiones de la traducción alemana (2026-10-28), y las dos trampas
+    que más se cuelan: las comillas de otra lengua y la palabra que en alemán
+    significa otra cosa."""
+
+    #: cada entrada con su motivo, que es el guard
+    TRAMPAS = {
+        r"\bSynchronisation\b":
+            "en alemán es el DOBLAJE (deutsche Synchronisation); la sincronía "
+            "es «Synchronität» y el doblaje se dice «Synchronfassung»",
+        r"\bbitte\b": "la app no habla con cortesía ornamental",
+        r"(?<![.!?:]\s)(?<!^)\b(?:Sie|Ihr|Ihre|Ihren|Ihrem|Ihrer)\b":
+            "la app tutea («du»), como el castellano",
+    }
+
+    def test_ninguna_trampa_conocida(self):
+        malas = []
+        for donde, cat in _catalogos():
+            for k, v in cat["de"].items():
+                for rx, motivo in self.TRAMPAS.items():
+                    if re.search(rx, v):
+                        malas.append(f"[{donde}] `{k}`: {v[:60]}\n      → {motivo}")
+        self.assertEqual(sorted(malas), [], (
+            f"\n{len(malas)} calco(s) o fallo(s) de registro en alemán:\n  · "
+            + "\n  · ".join(sorted(malas)[:10])))
+
+    def test_las_comillas_son_las_alemanas(self):
+        """`«»` son de castellano y catalán; el alemán usa „…“."""
+        malas = [f"[{donde}] `{k}`" for donde, cat in _catalogos()
+                 for k, v in cat["de"].items() if "«" in v or "»" in v]
+        self.assertEqual(malas, [], "\n  · ".join([""] + malas))
+
+    # Lo que NO es un sustantivo alemán se queda como está: el código, lo que
+    # va entre comillas invertidas, las etiquetas, los parámetros, las URL, un
+    # nombre de fichero («RPU_target.bin»), la extensión («.bin») y el
+    # subcomando («dovi_tool demux»).
+    _NO_ES_PROSA = re.compile(
+        r"<code\b[^>]*>.*?</code>|<kbd\b[^>]*>.*?</kbd>|`[^`\n]*`|<[^>]+>"
+        r"|\{\w+\}|https?://\S+|dovi_tool \w+", re.S)
+    _JERGA_EN_MINUSCULA = re.compile(
+        r"(?<![\w./\\])(?<!--)(drop-ins?|playlists?|remux(?:es)?|demux|merges?"
+        r"|bins?|trims?)(?![\w])(?!\.\w)")
+
+    def test_la_jerga_va_con_mayuscula(self):
+        """«das Bin», «der Merge», «das Remux»: en alemán todo sustantivo va
+        con mayúscula, también los préstamos. En minúscula, «das bin» se lee
+        como el verbo («ich bin»). Los traductores la dejaron en minúscula
+        porque el glosario pedía el término idéntico; el glosario compara la
+        jerga sin distinguir mayúsculas en alemán."""
+        manual = json.loads((APP_DIR / "static" / "i18n" / "manual" / "de.json")
+                            .read_text(encoding="utf-8"))
+        fuentes = [(donde, cat["de"]) for donde, cat in _catalogos()]
+        fuentes.append(("manual", manual))
+        malas = []
+        for donde, cat in fuentes:
+            for k, v in cat.items():
+                for m in self._JERGA_EN_MINUSCULA.finditer(self._NO_ES_PROSA.sub(" ", v)):
+                    malas.append(f"[{donde}] `{k}`: «{m.group(1)}»")
+        self.assertEqual(malas, [], (
+            f"\n{len(malas)} sustantivo(s) de la jerga en minúscula:\n  · "
+            + "\n  · ".join(malas[:12])))
 
 
 class TestLaOrtografiaInglesaEsUnaSola(unittest.TestCase):

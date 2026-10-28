@@ -7,8 +7,8 @@ regla de aquí se incumple, la suite falla.
 
 `es.json` contiene **exactamente** las frases que ya estaban en el código, byte
 a byte. Lo vigila `test_castellano_intacto.py` contra un golden capturado sobre
-la etiqueta `pre-i18n`. Traducir es producir `en` y `ca`; nunca "mejorar" el
-castellano de paso.
+la etiqueta `pre-i18n`. Traducir es producir `en`, `ca` y `de`; nunca "mejorar"
+el castellano de paso.
 
 El castellano **sí** cambia cuando lo pide el usuario, y entonces cada frase
 del golden que deja de existir se documenta con su motivo en el mismo commit:
@@ -211,6 +211,68 @@ Casos decididos, para que no se resuelvan dos veces:
 | huérfano | **orfe** | lengua común |
 | cola | **cua** | lengua común |
 | pista | **pista** | igual en las dos lenguas |
+
+## Alemán (2026-10-28)
+
+La cuarta lengua. Se tradujo del castellano con el inglés al lado para
+desambiguar, y estas son las decisiones, para que no se resuelvan dos veces:
+
+- **Tuteo (`du`)**, como el castellano: «Füge hier deinen Schlüssel ein»,
+  nunca «Sie», nunca «bitte». Lo vigila
+  `test_calidad_de_la_traduccion::TestElAlemanNoLlevaCalcos`.
+- **Los botones van en infinitivo**, como en castellano y como hacen las
+  interfaces alemanas: «Speichern», «Datei öffnen». Los **estados**, en forma
+  nominal: «Abgebrochen», «Ausstehend», «Läuft».
+- **Comillas alemanas „…“** donde el castellano lleva «…»; la raya (—) se
+  conserva como en las demás lenguas.
+- **«Synchronisation» no se usa nunca**: en alemán es el DOBLAJE. La sincronía
+  de «Multiplexar MKV» es **«Synchronität»** y el doblaje, **«Synchronfassung»**.
+  Es la trampa que más fácil se cuela, y el mismo test la persigue. En
+  CMv4.0, el ajuste frame a frame de la Fase D es **«Sync»** (*der Sync*),
+  el préstamo de uso común: «Phase D · Sync prüfen», «Sync-Konfidenz»,
+  «Sync-Korrektur». La interfaz y el log usan el mismo nombre de fase.
+- **La jerga del oficio va con mayúscula**, porque en alemán todo sustantivo
+  la lleva, también los préstamos: «das Bin», «der Merge», «das Remux», «die
+  Playlist», «der Drop-in», «die Trims». En minúscula, «das bin» se lee como
+  el verbo («ich bin»). Lo que no es un sustantivo alemán se queda como
+  está: un nombre de fichero (`RPU_target.bin`), la extensión (`.bin`), el
+  subcomando (`dovi_tool demux`) y lo que va en `<code>`. Por eso el
+  glosario compara esa jerga **sin distinguir mayúsculas, solo en alemán**;
+  las herramientas y los nombres (mkvmerge, MKV, Season) siguen exactos. Lo
+  fija `test_calidad_de_la_traduccion::TestElAlemanNoLlevaCalcos::test_la_jerga_va_con_mayuscula`.
+- **Los géneros**: *die* RPU (como *die* CPU: *Unit* es femenino), *das* Bin,
+  *das* MKV, *das* Remux, *der* Merge, *die* Playlist y *der* EL, BL, FEL,
+  MEL (*Layer*).
+- **«Todo» / «Nada» → «Alles» / «Nichts»**: la misma palabra castellana es el
+  zoom «Todo» de la Fase D (toda la película) y el botón de las columnas de
+  Multiplexar, y un mismo castellano tiene una sola traducción.
+- **Los plurales con sufijo** (`{p2}` = «s» o nada) no sirven para «Projekt»
+  ni para «Datei», que no hacen el plural con -s. El sufijo va con una
+  palabra que sí lo admite: «{n} Rip{p2}», «{n} Upgrade{p2}», «{n} File{p2}»,
+  «{n} Job{p2}». Lo limpio, si alguna vez molesta, es partir la clave en
+  `_uno`/`_varios`.
+- **Los tipos de subtítulo**, también dentro del MKV: `Forzados` →
+  **«Erzwungen»** y `Completos` → **«Vollständig»**, que es lo que dicen Plex y
+  Jellyfin en alemán.
+- **VO → «OV»** (Originalversion), y los rótulos del perfil describen el
+  perfil alemán: `Castellano + VO` → «Deutsch + OV».
+- `Castellano` → **«Spanisch»** (nombre de idioma), `Biblioteca` →
+  «Bibliothek»; `Output` y `Downloaded` se quedan en inglés, como en
+  castellano.
+- Las cuatro pestañas: «Blu-Ray ISO → MKV», «Dolby Vision CMv4.0-Upgrade»,
+  «MKV multiplexen» y «MKV untersuchen / bearbeiten».
+- Glosario del oficio: Projekt, Auftrag (un trabajo), Warteschlange, Phase,
+  Spur / Tonspur / Untertitelspur, Kapitel, Disc, Folge, Staffel, Colorist,
+  Vorabprüfung (pre-flight), Arbeitsdateien (artefactos), TMDb-Eintrag (la
+  ficha). Los compuestos con un término técnico llevan guion: «RPU-Datei»,
+  «MKV-Datei», «CMv4.0-Metadaten». **«Dolby Vision» conserva su espacio**,
+  porque es un nombre del glosario: «RPU von Dolby Vision», «Dolby
+  Vision-Stichprobe», no «Dolby-Vision-…».
+- **TMDb cae al inglés, no al castellano**, cuando no tiene la ficha en
+  alemán (`services/tmdb._respaldo_de`): es lo que su lector entiende antes.
+- **El perfil de pistas alemán es `("german",)`**: alemán y el VO, como el
+  castellano y el inglés van solos. Los UHD Blu-ray que se venden en Alemania
+  traen casi siempre la pista alemana.
 
 ## Interpolación: mensajes con parámetros con nombre
 
