@@ -105,6 +105,24 @@ class TestElComposeCaeALaDeAntes(unittest.TestCase):
             nombre = m.group(1)
             self.assertIn(f"${{UBT_{nombre}:-${{HDO_{nombre}", self.compose, nombre)
 
+    def test_cada_variable_que_lee_la_app_llega_al_contenedor(self):
+        """Compose solo usa el `.env` para sustituir variables en el propio
+        compose: lo que no esté en `environment:` no llega al contenedor.
+        `UBT_IDIOMA`, `UBT_TEMA` y `UBT_FIRMA_CLAVE` estaban documentadas como
+        configurables desde el `.env` y no se pasaban (ya en la v3.5.0, con
+        `HDO_`). Lo encontró la revisión de Codex previa a la v1.0.0."""
+        leidas = set()
+        for f in (RAIZ / "app").rglob("*.py"):
+            if "tests" in f.parts:
+                continue
+            leidas |= set(re.findall(r'entorno\.variable\("([A-Z_]+)"',
+                                     f.read_text(encoding="utf-8")))
+        self.assertTrue(leidas, "no se encontró ninguna lectura de entorno.variable")
+        for nombre in sorted(leidas):
+            with self.subTest(variable=nombre):
+                self.assertIn(f"- UBT_{nombre}=${{UBT_{nombre}:-${{HDO_{nombre}:-}}}}",
+                              self.compose)
+
     def test_el_servicio_y_el_contenedor_llevan_el_nombre_nuevo(self):
         self.assertIn("\n  uhd-blu-ray-toolkit:\n", self.compose)
         self.assertIn("container_name: uhd-blu-ray-toolkit", self.compose)

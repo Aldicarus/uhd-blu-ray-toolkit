@@ -51,6 +51,13 @@ services:
 
     environment:
       - TZ=${TZ:-Europe/Madrid}
+      # El idioma y el tema por defecto, si los fijas en el .env (lo que se
+      # elija en ⚙︎ Configuración gana). Sin estas líneas el .env no llega al
+      # contenedor: Compose solo lo usa para sustituir variables en este
+      # fichero. Vacías, la app usa los suyos.
+      - UBT_IDIOMA=${UBT_IDIOMA:-${HDO_IDIOMA:-}}
+      - UBT_TEMA=${UBT_TEMA:-${HDO_TEMA:-}}
+      - UBT_FIRMA_CLAVE=${UBT_FIRMA_CLAVE:-${HDO_FIRMA_CLAVE:-}}
       # Enseña el chip de procedencia en «Consultar / Editar MKV». Vacío en
       # una instalación normal: la marca se escribe siempre, pero el chip es
       # una herramienta del autor y no parte del producto.
