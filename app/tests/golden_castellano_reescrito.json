@@ -3,7 +3,8 @@
   "registro_2026_10_27": "la pasada de registro preciso a toda la app, a petición del usuario (2026-10-27, tras la de Multiplexar MKV): fuera las metáforas que tienen palabra exacta, el inglés mezclado que tiene palabra castellana y la primera persona del plural, y se corrige lo que ya no era cierto (la sub-pestaña Cola, «Tab 3», el comparador A/B, la lista de niveles del merge FEL, la Fase F que «inyecta el RPU original»). Cambia la FORMA, o un dato viejo; el criterio está en REGISTRO.md («Precisión, no jerga de calle») y lo vigila test_registro_de_la_traduccion::TestLaAppHablaConPrecision",
   "manual_cmv40_2026_10_27": "el manual CMv4.0 describía reglas retiradas —el árbol «perfil + L2 idéntico», los gates L1/L6 que «solo avisan», el L5 que «aborta», el botón «Detectar offset», la corrección solo al inicio, la validación «byte-idéntica» del drop-in, combinaciones que «abortan», un interruptor que no existe— y se reescribió contra el código el 2026-10-27, en las tres lenguas y con el registro preciso del resto de la app",
   "builds_al_vuelo_2026_10_28": "la conversión a CMv4.0 al vuelo la hacen hoy tres builds de CoreELEC —p3i (pannal) y avdvplus en CE21, la de SamuriHL en CE22—, y la app nombraba otras (cpm, panni, «p3i T4 / Sony / LG modernos», appletvplus); a petición del usuario (2026-10-28), al publicar la portada nueva, que dice lo mismo. De paso la confirmación de «Mantener el MKV actual» deja de partir su frase en tres claves",
-  "nota_del_merge_2026_10_28": "la nota del merge terminado decía «sobrescriben al del source (refinan stats legacy del BD)» —inglés mezclado y una afirmación que nada mide—; pasa a decir de dónde viene cada nivel, visto en la captura de la portada (2026-10-28)"
+  "nota_del_merge_2026_10_28": "la nota del merge terminado decía «sobrescriben al del source (refinan stats legacy del BD)» —inglés mezclado y una afirmación que nada mide—; pasa a decir de dónde viene cada nivel, visto en la captura de la portada (2026-10-28)",
+  "manual_cmv40_2026_10_28": "al traducir el manual al alemán salieron cuatro pasajes desfasados respecto al código, reescritos en las cuatro lenguas con el OK del usuario (2026-10-28): el desfase de la hoja de DoviTools ya viene corregido en el bin y lo esperable es medir cero (sheet_sync_hint); la app trae su propia clave de TMDb; la imagen lleva dovi_tool 2.3.4; y los rótulos de hoy son «Borrar claves guardadas» y «URL del repositorio DoviTools» (vaciar el campo de TMDb no borra la clave)"
  },
  "frases": {
   "\" ⟦⟧ \" sigue ejecutándose — míralo en la Cola": "registro_2026_10_27",
@@ -389,6 +390,21 @@
   "¿Reproduces exclusivamente desde una Ugoos con CoreELEC-avdvplus?": "builds_al_vuelo_2026_10_28",
   "—disponibles en reproductores Amlogic con SoC licenciado por Dolby (Ugoos AM6B+, AM6B Plus, Homatics R 4K Plus)— tienen un toggle": "builds_al_vuelo_2026_10_28",
   "L1/L2/L5/L6 del MKV original preservados": "nota_del_merge_2026_10_28",
-  "L1/L2/L6 del bin sobrescriben al del source (refinan stats legacy del BD)": "nota_del_merge_2026_10_28"
+  "L1/L2/L6 del bin sobrescriben al del source (refinan stats legacy del BD)": "nota_del_merge_2026_10_28",
+  "\"Carpeta Drive DoviTools\" también puedes saltártelo": "manual_cmv40_2026_10_28",
+  ", la app contrasta el título con TMDb — así desambigua cine no-ASCII (cine asiático, títulos en otros idiomas) y confirma el año.": "manual_cmv40_2026_10_28",
+  ", significa que el bin viene con 48 frames extra al inicio (normalmente logos de estudio que el Blu-ray no tiene). En la Fase D la app": "manual_cmv40_2026_10_28",
+  ". Nunca te quedas sin TMDb por borrar tu clave.": "manual_cmv40_2026_10_28",
+  ": borra el campo de TMDb y guarda, o pulsa": "manual_cmv40_2026_10_28",
+  "Cuántos frames difiere el bin respecto al Blu-ray. Positivo = el bin tiene frames de más al inicio. Negativo = le faltan.": "manual_cmv40_2026_10_28",
+  "Si has configurado una API key de TMDb en": "manual_cmv40_2026_10_28",
+  "Si tienes TMDb configurado, obtiene hasta 5 títulos alternativos — útil sobre todo para cine asiático y otros idiomas no latinos.": "manual_cmv40_2026_10_28",
+  "Vaciar todo": "manual_cmv40_2026_10_28",
+  "acepta Matroska (MKV) como entrada directa — esto permite que el análisis de DV en las pestañas": "manual_cmv40_2026_10_28",
+  "contrasta ese dato con el desfase que mide ella misma": "manual_cmv40_2026_10_28",
+  "dovi_tool 2.3.2 — notas de versión": "manual_cmv40_2026_10_28",
+  "el desfase del sheet se compara con el que mide la app; coincidencia = confirmación, divergencia = aviso.": "manual_cmv40_2026_10_28",
+  "se haga sin pre-extraer el HEVC con ffmpeg;": "manual_cmv40_2026_10_28",
+  "si el sheet dice": "manual_cmv40_2026_10_28"
  }
 }
