@@ -35,7 +35,11 @@ pidió el usuario), y se sostiene en tres piezas:
 - **Las variables viejas se siguen leyendo**: `entorno.variable("X")` lee
   `UBT_X` y, si no está o está vacía, `HDO_X`; el compose hace lo mismo con
   `${UBT_X:-${HDO_X:-…}}`. Un `.env` de antes funciona sin tocarlo. Lo vigila
-  `test_entorno`, que además falla si alguien lee un `HDO_`/`UBT_` a pelo.
+  `test_entorno`, que además falla si alguien lee un `HDO_`/`UBT_` a pelo y
+  si una variable que la app lee no está en el `environment:` del compose:
+  Compose solo usa el `.env` para sustituir en el propio fichero, y
+  `IDIOMA`, `TEMA` y `FIRMA_CLAVE` no llegaban al contenedor ni en la v3.5.0
+  (lo encontró la revisión de Codex previa a la v1.0.0).
 - **Los datos no se mueven**: viven en las carpetas del `.env`, y la v1.0 lee
   exactamente lo que leía la v3.5.0.
 - **El aviso llega por donde ya miran**: la app vieja pregunta por
@@ -4312,7 +4316,7 @@ versión) y las 46 comprobaciones de su Fase C en verde.
 ### La auditoría de la suite del 2026-10-17: lo que cambió en cómo se prueba
 
 Con **38 mutaciones** propuestas por Codex aplicadas A LA VEZ, los 3.117 tests
-de entonces seguían en verde. Hoy hay **731 mutaciones** en
+de entonces seguían en verde. Hoy hay **732 mutaciones** en
 `app/tools/mutaciones.json` —las 42 de la auditoría que siguen aplicando, más
 una por cada arreglo que salió de ella, las de la pestaña Multiplexar, las
 `T5R-*` de la pasada de registro a toda la app, las `T2R-*`/`T2F-*`/`T4A-*`

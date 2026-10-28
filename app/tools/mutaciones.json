@@ -6592,5 +6592,14 @@
   "modulos": [
    "test_licencias"
   ]
+ },
+ {
+  "id": "T8D-9 el tema del .env vuelve a no llegar al contenedor",
+  "fichero": "docker/docker-compose.yml",
+  "viejo": "      - UBT_TEMA=${UBT_TEMA:-${HDO_TEMA:-}}\n",
+  "nuevo": "",
+  "modulos": [
+   "test_entorno"
+  ]
  }
 ]
