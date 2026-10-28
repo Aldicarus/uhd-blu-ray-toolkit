@@ -4312,7 +4312,7 @@ versión) y las 46 comprobaciones de su Fase C en verde.
 ### La auditoría de la suite del 2026-10-17: lo que cambió en cómo se prueba
 
 Con **38 mutaciones** propuestas por Codex aplicadas A LA VEZ, los 3.117 tests
-de entonces seguían en verde. Hoy hay **730 mutaciones** en
+de entonces seguían en verde. Hoy hay **731 mutaciones** en
 `app/tools/mutaciones.json` —las 42 de la auditoría que siguen aplicando, más
 una por cada arreglo que salió de ella, las de la pestaña Multiplexar, las
 `T5R-*` de la pasada de registro a toda la app, las `T2R-*`/`T2F-*`/`T4A-*`
@@ -5248,6 +5248,17 @@ traducción:
   «Nadie detecta una fase leyendo prosa del log»; hoy lo decide el `step`
   que deja el cierre, y `test_contratos_de_cancelar_y_resultados` lo prueba
   en las cuatro lenguas.
+
+**Y al traducir el manual salieron cuatro pasajes desfasados respecto al
+código**, que se reescribieron en las cuatro lenguas con el OK del usuario:
+la hoja de DoviTools presentaba como buena señal medir el desfase que
+documenta (el código espera medir cero: ese desfase ya viene corregido en el
+bin, ver `sheet_sync_hint`); el manual decía «si has configurado una API key
+de TMDb» con la app trayendo la suya; citaba dovi_tool 2.3.2 con la imagen en
+la 2.3.4; y en «keys» mandaba a «Vaciar todo» y a «Carpeta Drive DoviTools»,
+rótulos que ya no existen, y a vaciar el campo de TMDb y guardar, que no
+borra nada (un campo vacío no se envía). La versión la vigila desde entonces
+`test_licencias::test_el_manual_cita_la_version_de_dovi_tool_que_se_distribuye`.
 
 Los tests que enumeraban `("es", "en", "ca")` a mano —una veintena— cubren
 ya el alemán donde la comprobación es genérica (catálogos completos,

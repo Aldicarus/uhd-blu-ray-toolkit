@@ -116,6 +116,19 @@ class TestLasVersionesDelDockerfileEstanEnLosAvisos(unittest.TestCase):
     def test_la_version_de_dovi_tool(self):
         self.assertIn(self._arg("DOVI_TOOL_VERSION"), self.avisos)
 
+    def test_el_manual_cita_la_version_de_dovi_tool_que_se_distribuye(self):
+        """El manual decía «el contenedor incluye dovi_tool 2.3.2» con la
+        imagen en la 2.3.4: es la misma lista escrita dos veces, en las
+        cuatro lenguas. Cada versión que cite tiene que ser la del ARG."""
+        version = self._arg("DOVI_TOOL_VERSION")
+        manual_dir = RAIZ / "app" / "static" / "i18n" / "manual"
+        for fichero in sorted(manual_dir.glob("*.json")):
+            texto = fichero.read_text(encoding="utf-8")
+            citadas = set(re.findall(r"dovi_tool (\d+\.\d+\.\d+)", texto))
+            with self.subTest(manual=fichero.name):
+                self.assertTrue(citadas, "el manual ya no cita ninguna versión")
+                self.assertEqual(citadas, {version})
+
     def test_las_versiones_de_mkvtoolnix_y_mediainfo(self):
         """Desde la base 24.04 los dos van fijados en el Dockerfile (antes
         los congelaba la distribución), así que su fila de los avisos dice

@@ -6583,5 +6583,14 @@
   "modulos": [
    "test_contratos_de_cancelar_y_resultados"
   ]
+ },
+ {
+  "id": "T8D-8 el manual vuelve a citar una versión de dovi_tool que no es la del Dockerfile",
+  "fichero": "app/static/i18n/manual/ca.json",
+  "viejo": "el contenidor inclou <strong>dovi_tool 2.3.4</strong>",
+  "nuevo": "el contenidor inclou <strong>dovi_tool 2.3.2</strong>",
+  "modulos": [
+   "test_licencias"
+  ]
  }
 ]
