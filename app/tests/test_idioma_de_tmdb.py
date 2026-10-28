@@ -89,6 +89,7 @@ class IdiomaDeTmdb(unittest.TestCase):
         p.start(); self.addCleanup(p.stop)
         p = mock.patch.object(st, "SETTINGS_PATH", self.tmp / "app_settings.json")
         p.start(); self.addCleanup(p.stop)
+        os.environ.pop("UBT_IDIOMA", None)
         os.environ.pop("HDO_IDIOMA", None)
         tmdb._cache = None
         self.addCleanup(setattr, tmdb, "_cache", None)

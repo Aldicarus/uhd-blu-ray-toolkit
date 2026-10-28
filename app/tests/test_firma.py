@@ -23,6 +23,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parents[1]
@@ -643,7 +644,7 @@ class TestTab2LoReconoce(unittest.IsolatedAsyncioTestCase):
 # ══════════════════════════════════════════════════════════════════════
 
 class TestElInterruptor(unittest.TestCase):
-    """`HDO_MOSTRAR_AUTORIA`: la marca se escribe siempre, el chip no se ve.
+    """`UBT_MOSTRAR_AUTORIA`: la marca se escribe siempre, el chip no se ve.
 
     La marca la pone toda instalación —eso es lo que permite reconocer un MKV
     hecho con la app venga de donde venga— pero el chip es una herramienta del
@@ -651,21 +652,27 @@ class TestElInterruptor(unittest.TestCase):
     """
 
     def setUp(self):
-        self._previo = os.environ.get("HDO_MOSTRAR_AUTORIA")
-        self.addCleanup(self._restaurar)
+        entorno = mock.patch.dict(os.environ, {}, clear=False)
+        entorno.start()
+        self.addCleanup(entorno.stop)
+        for v in ("UBT_MOSTRAR_AUTORIA", "HDO_MOSTRAR_AUTORIA"):
+            os.environ.pop(v, None)
 
-    def _restaurar(self):
-        if self._previo is None:
-            os.environ.pop("HDO_MOSTRAR_AUTORIA", None)
-        else:
-            os.environ["HDO_MOSTRAR_AUTORIA"] = self._previo
-
-    def _con(self, valor):
+    def _con(self, valor, variable="UBT_MOSTRAR_AUTORIA"):
         if valor is None:
-            os.environ.pop("HDO_MOSTRAR_AUTORIA", None)
+            os.environ.pop(variable, None)
         else:
-            os.environ["HDO_MOSTRAR_AUTORIA"] = valor
+            os.environ[variable] = valor
         return firma.se_muestra_la_autoria()
+
+    def test_la_de_antes_de_la_v1_tambien_la_activa(self):
+        """El `.env` de quien venga de hdo-iso-converter dice `HDO_…`, y la
+        mudanza tiene que ser transparente."""
+        self.assertTrue(self._con("1", "HDO_MOSTRAR_AUTORIA"))
+
+    def test_si_estan_las_dos_manda_la_nueva(self):
+        os.environ["HDO_MOSTRAR_AUTORIA"] = "1"
+        self.assertFalse(self._con("0"))
 
     def test_por_defecto_NO_se_muestra(self):
         """Es el caso de todos los usuarios menos uno."""
@@ -692,18 +699,17 @@ class TestElFiltroAlServir(unittest.TestCase):
     """El filtro va en `_con_lectura`, el único punto que sirve el análisis."""
 
     def setUp(self):
-        self._previo = os.environ.get("HDO_MOSTRAR_AUTORIA")
-        self.addCleanup(
-            lambda: os.environ.pop("HDO_MOSTRAR_AUTORIA", None)
-            if self._previo is None
-            else os.environ.__setitem__("HDO_MOSTRAR_AUTORIA", self._previo))
+        entorno = mock.patch.dict(os.environ, {}, clear=False)
+        entorno.start()
+        self.addCleanup(entorno.stop)
+        os.environ.pop("HDO_MOSTRAR_AUTORIA", None)
 
     def _servido(self, activado: bool) -> dict:
         from routers import tab2
         if activado:
-            os.environ["HDO_MOSTRAR_AUTORIA"] = "1"
+            os.environ["UBT_MOSTRAR_AUTORIA"] = "1"
         else:
-            os.environ.pop("HDO_MOSTRAR_AUTORIA", None)
+            os.environ.pop("UBT_MOSTRAR_AUTORIA", None)
         return tab2._con_lectura({"hecho_con_esta_app": True,
                                   "file_name": "x.mkv", "tracks": []})
 
@@ -727,13 +733,14 @@ class TestElCableadoDeLaVariable(unittest.TestCase):
     def test_el_compose_la_pasa_al_contenedor(self):
         compose = (APP_DIR.parent / "docker" / "docker-compose.yml").read_text(
             encoding="utf-8")
-        self.assertIn("HDO_MOSTRAR_AUTORIA=${HDO_MOSTRAR_AUTORIA:-}", compose,
-                      "sin esto la variable del .env no llega al contenedor")
+        self.assertIn("UBT_MOSTRAR_AUTORIA=${UBT_MOSTRAR_AUTORIA:-${HDO_MOSTRAR_AUTORIA:-}}",
+                      compose, "sin esto la variable del .env —la de ahora o la de "
+                      "antes de la v1.0— no llega al contenedor")
 
     def test_el_env_example_la_documenta(self):
         ejemplo = (APP_DIR.parent / "docker" / ".env.example").read_text(
             encoding="utf-8")
-        self.assertIn("HDO_MOSTRAR_AUTORIA", ejemplo)
+        self.assertIn("UBT_MOSTRAR_AUTORIA=", ejemplo)
 
     def test_el_campo_se_sigue_CALCULANDO_para_todos(self):
         """El filtro va al servir, no al analizar: así la caché es la misma en

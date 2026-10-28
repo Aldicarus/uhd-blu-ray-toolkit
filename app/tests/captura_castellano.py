@@ -556,7 +556,7 @@ def es_rotulo(s: str) -> bool:
     # `test_el_paso_no_se_adivina`, no una copia.
     if any(m in t for m in MARCADORES):
         return False
-    # **Un identificador en MAYÚSCULAS tampoco.** `HDO_IDIOMA` es el nombre
+    # **Un identificador en MAYÚSCULAS tampoco.** `UBT_IDIOMA` es el nombre
     # de una variable de entorno y `TAB_MKV` el de una constante; ninguno se
     # lee en pantalla, y los dos llevan una palabra castellana dentro.
     if re.fullmatch(r"[A-Z][A-Z0-9_]*", t):

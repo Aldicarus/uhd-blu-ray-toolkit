@@ -1,6 +1,6 @@
 # Avisos de terceros — UHD Blu-ray Toolkit
 
-Este documento acompaña a la imagen `ghcr.io/aldicarus/hdo-iso-converter` y
+Este documento acompaña a la imagen `ghcr.io/aldicarus/uhd-blu-ray-toolkit` y
 al código de este repositorio. Enumera el software de terceros que la imagen
 contiene, bajo qué licencia, y dónde obtener su código fuente.
 
@@ -68,7 +68,7 @@ source code for the GPL- and LGPL-licensed components listed above, to be
 delivered under the terms of their respective licenses. To request it, open
 an issue at:
 
-**https://github.com/Aldicarus/hdo-iso-converter/issues**
+**https://github.com/Aldicarus/uhd-blu-ray-toolkit/issues**
 
 **Castellano.** Durante tres (3) años desde la fecha de distribución de
 cualquier versión binaria de este software, Aldicarus ofrece entregar a

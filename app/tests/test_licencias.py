@@ -298,7 +298,7 @@ class TestLaOfertaDeFuentesEstaCompleta(unittest.TestCase):
         self.assertIn("any third party", self.t)
 
     def test_trae_un_contacto_alcanzable(self):
-        self.assertIn("github.com/Aldicarus/hdo-iso-converter/issues", self.t)
+        self.assertIn("github.com/Aldicarus/uhd-blu-ray-toolkit/issues", self.t)
 
     def test_avisa_de_que_los_autobuilds_de_btbn_caducan(self):
         """Es el modo de fallo propio de este proyecto y ya mordió una vez:

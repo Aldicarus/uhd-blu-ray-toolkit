@@ -116,7 +116,7 @@ jobs:
             manifest:org.opencontainers.image.description=${{ steps.rel.outputs.description }}
             manifest:org.opencontainers.image.title=UHD Blu-ray Toolkit
             manifest:org.opencontainers.image.version=${{ steps.rel.outputs.tag }}
-            manifest:org.opencontainers.image.source=https://github.com/Aldicarus/hdo-iso-converter
+            manifest:org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           # Bake version y commit en la imagen para que /api/version
           # reporte el tag real en vez de 'dev / unknown'.
           # TMDB_APP_KEY es la clave con la que la app funciona out of the
@@ -164,10 +164,11 @@ jobs:
           BODY=$(cat /tmp/release_body.txt)
           # Escapamos via jq para JSON safe
           PAYLOAD=$(jq -n --arg desc "$BODY" '{description: $desc}')
-          # Endpoint user packages (Aldicarus es user, no org)
+          # Endpoint user packages (Aldicarus es user, no org). El paquete se
+          # llama como el repo, igual que la imagen (`IMAGE_NAME`).
           curl -sf -X PATCH \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/user/packages/container/hdo-iso-converter" \
+            "https://api.github.com/user/packages/container/${{ github.event.repository.name }}" \
             -d "$PAYLOAD" || echo "⚠ No se pudo actualizar la description del package (puede requerir PAT clásico con scope write:packages, no GITHUB_TOKEN)"

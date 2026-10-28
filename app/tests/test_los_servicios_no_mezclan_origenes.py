@@ -80,7 +80,7 @@ class ConConfigAislada(unittest.TestCase):
         entorno = mock.patch.dict(os.environ, {}, clear=False)
         entorno.start()
         self.addCleanup(entorno.stop)
-        for v in ("HDO_IDIOMA", "CMV40_DRIVE_FOLDER_URL", "CMV40_DRIVE_FOLDER_ID",
+        for v in ("UBT_IDIOMA", "HDO_IDIOMA", "CMV40_DRIVE_FOLDER_URL", "CMV40_DRIVE_FOLDER_ID",
                   "GOOGLE_API_KEY", "CMV40_SHEET_URL"):
             os.environ.pop(v, None)
         i18n.limpiar_cache()

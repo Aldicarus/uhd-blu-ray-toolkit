@@ -1,21 +1,21 @@
 # docker-compose.yml — sirve para los DOS casos de uso:
 #
 #   1. End user: `docker compose pull && docker compose up -d`
-#      → usa la imagen ghcr.io/aldicarus/hdo-iso-converter:latest
+#      → usa la imagen ghcr.io/aldicarus/uhd-blu-ray-toolkit:latest
 #      → la directiva `build:` se ignora (no se invoca sin --build)
 #      → funciona sin el codigo fuente. Ideal para Container Station,
 #        Portainer, QNAP, o cualquier host con solo este fichero + .env
 #
 #   2. Dev: `docker compose up -d --build`
 #      → reconstruye la imagen desde el Dockerfile local
-#      → tagea como ghcr.io/aldicarus/hdo-iso-converter:latest (overrides
+#      → tagea como ghcr.io/aldicarus/uhd-blu-ray-toolkit:latest (overrides
 #        cualquier pull previo). Util para iterar cambios de codigo en
 #        un host con clone del repo.
 #
-# Imagen oficial publicada: https://github.com/Aldicarus/hdo-iso-converter/pkgs/container/hdo-iso-converter
+# Imagen oficial publicada: https://github.com/Aldicarus/uhd-blu-ray-toolkit/pkgs/container/uhd-blu-ray-toolkit
 
 services:
-  hdo-iso-converter:
+  uhd-blu-ray-toolkit:
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -35,23 +35,26 @@ services:
         TMDB_APP_KEY: ${TMDB_APP_KEY:-}
         # Ídem con el repo DoviTools que trae la app.
         CMV40_DRIVE_FOLDER_APP: ${CMV40_DRIVE_FOLDER_APP:-}
-    image: ghcr.io/aldicarus/hdo-iso-converter:latest
-    container_name: hdo-iso-converter
-    hostname: hdo-iso-converter
+    image: ghcr.io/aldicarus/uhd-blu-ray-toolkit:latest
+    container_name: uhd-blu-ray-toolkit
+    hostname: uhd-blu-ray-toolkit
     restart: unless-stopped
 
     # Necesario para: mount -t udf -o ro,loop (ISOs UHD Blu-ray UDF 2.50)
     privileged: true
 
+    # Las variables de la app empiezan por UBT_ (UHD Blu-ray Toolkit). Hasta
+    # la v1.0 se llamaba hdo-iso-converter y empezaban por HDO_: un .env de
+    # entonces sigue valiendo tal cual, porque cada una cae a la de antes.
     ports:
-      - "${HDO_PORT:-8090}:8080"
+      - "${UBT_PORT:-${HDO_PORT:-8090}}:8080"
 
     environment:
       - TZ=${TZ:-Europe/Madrid}
       # Enseña el chip de procedencia en «Consultar / Editar MKV». Vacío en
       # una instalación normal: la marca se escribe siempre, pero el chip es
       # una herramienta del autor y no parte del producto.
-      - HDO_MOSTRAR_AUTORIA=${HDO_MOSTRAR_AUTORIA:-}
+      - UBT_MOSTRAR_AUTORIA=${UBT_MOSTRAR_AUTORIA:-${HDO_MOSTRAR_AUTORIA:-}}
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]

@@ -289,7 +289,7 @@ class TestElContextoInseguro(AvisoCase):
         """)
         self.assertIsNotNone(out)
         self.assertIn("CMv4.0", out["o"]["body"])
-        self.assertEqual(out["o"]["tag"], "hdo-fin-3", "un tag por tab: no se apilan")
+        self.assertEqual(out["o"]["tag"], "ubt-fin-3", "un tag por tab: no se apilan")
 
 
 class TestElTrafico(AvisoCase):

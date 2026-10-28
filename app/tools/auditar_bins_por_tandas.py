@@ -8,9 +8,9 @@ fichero.
 
 USO
 
-    docker exec hdo-iso-converter python3 -m tools.auditar_bins_por_tandas
-    docker exec hdo-iso-converter python3 -m tools.auditar_bins_por_tandas -n 8
-    docker exec hdo-iso-converter python3 -m tools.auditar_bins_por_tandas --informe
+    docker exec uhd-blu-ray-toolkit python3 -m tools.auditar_bins_por_tandas
+    docker exec uhd-blu-ray-toolkit python3 -m tools.auditar_bins_por_tandas -n 8
+    docker exec uhd-blu-ray-toolkit python3 -m tools.auditar_bins_por_tandas --informe
 
 QUÉ AUDITA, Y EN QUÉ ORDEN
 

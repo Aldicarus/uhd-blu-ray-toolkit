@@ -9,8 +9,8 @@ Rip the disc &nbsp;→&nbsp; Upgrade it to CMv4.0 &nbsp;→&nbsp; Add audio and 
 A self-hosted web app that takes the backups of your own UHD Blu-rays (ISO, BDMV or M2TS)<br>
 to that file, and checks each step along the way.
 
-[![Latest release](https://img.shields.io/github/v/release/Aldicarus/hdo-iso-converter?sort=semver&filter=v*&label=release)](https://github.com/Aldicarus/hdo-iso-converter/releases/latest)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?logo=docker&logoColor=white)](https://github.com/Aldicarus/hdo-iso-converter/pkgs/container/hdo-iso-converter)
+[![Latest release](https://img.shields.io/github/v/release/Aldicarus/uhd-blu-ray-toolkit?sort=semver&filter=v*&label=release)](https://github.com/Aldicarus/uhd-blu-ray-toolkit/releases/latest)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?logo=docker&logoColor=white)](https://github.com/Aldicarus/uhd-blu-ray-toolkit/pkgs/container/uhd-blu-ray-toolkit)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 [Why I built it](#why-i-built-it) · [How it works](#how-it-works) · [Same tools, one more layer](#same-tools-one-more-layer) · [And DoVi_Scripts?](#uhd-blu-ray-toolkit-and-dovi_scripts) · [The four steps](#the-four-steps-in-detail) · [Installation](#installation) · [Your first film](#your-first-film) · [FAQ](#faq)
@@ -172,8 +172,8 @@ Dolby Vision carries a set of instructions that tells each display how to fit th
 
 ```bash
 mkdir uhd-bluray-toolkit && cd uhd-bluray-toolkit
-curl -LO https://raw.githubusercontent.com/Aldicarus/hdo-iso-converter/main/docker/docker-compose.yml
-curl -L  https://raw.githubusercontent.com/Aldicarus/hdo-iso-converter/main/docker/.env.example -o .env
+curl -LO https://raw.githubusercontent.com/Aldicarus/uhd-blu-ray-toolkit/main/docker/docker-compose.yml
+curl -L  https://raw.githubusercontent.com/Aldicarus/uhd-blu-ray-toolkit/main/docker/.env.example -o .env
 ```
 
 **2. Set your folders** in the `.env` file. Each folder must exist before the app starts:
@@ -210,6 +210,21 @@ docker compose up -d
 ```bash
 docker compose pull && docker compose up -d
 ```
+
+<details>
+<summary><b>Coming from hdo-iso-converter?</b> Moving over keeps all your projects and settings</summary>
+
+Until v1.0 the app was published as **hdo-iso-converter**. Your projects, settings and files live in the folders of your `.env`, and the new version reads them as they are. In the folder where your `docker-compose.yml` is:
+
+```bash
+docker compose down
+curl -LO https://raw.githubusercontent.com/Aldicarus/uhd-blu-ray-toolkit/main/docker/docker-compose.yml
+docker compose pull && docker compose up -d
+```
+
+Run `down` before replacing the file, so the old container stops and frees the port. Your `.env` works unchanged: the variables now start with `UBT_`, but the old `HDO_` ones are still read. More details in the [technical documentation](docs/TECHNICAL.md#coming-from-hdo-iso-converter).
+
+</details>
 
 > [!TIP]
 > Film and TV show details from TMDb (posters, synopses, episodes) work right after installation. Searching the DoviTools repository for CMv4.0 files also needs a free Google API key, which goes in ⚙︎ Settings. The built-in manual explains how to get one, step by step.

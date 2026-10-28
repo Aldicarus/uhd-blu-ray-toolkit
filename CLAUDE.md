@@ -13,12 +13,51 @@ y después el separador y la descripción. Chip y nombre **son una sola cosa** �
 nombre— así que entre ellos no va separador; el que hay separa la marca de la
 descripción, que sí son dos.
 
-Nombres técnicos que **se mantienen por compatibilidad** (no romper docker pulls
-/ URLs / despliegues existentes):
-- Repositorio interno: `ISO2MKVFEL` (path local)
-- GitHub repo: `hdo-iso-converter`
-- Imagen Docker: `ghcr.io/aldicarus/hdo-iso-converter:latest`
-- Variable de entorno del puerto: `HDO_PORT` (está en el `.env` del NAS)
+Desde la v1.0 (2026-10-28) **los nombres técnicos también son los de la app**.
+Hasta entonces el proyecto se publicó como «hdo-iso-converter», y para abrirlo
+del todo el usuario quiso que el repo se llamara como la app y que la
+numeración empezara de nuevo:
+
+| | hasta la v3.5.0 | desde la v1.0.0 |
+|---|---|---|
+| repo de GitHub | `Aldicarus/hdo-iso-converter` | `Aldicarus/uhd-blu-ray-toolkit` |
+| imagen | `ghcr.io/aldicarus/hdo-iso-converter` | `ghcr.io/aldicarus/uhd-blu-ray-toolkit` |
+| servicio, contenedor y hostname del compose | `hdo-iso-converter` | `uhd-blu-ray-toolkit` |
+| variables | `HDO_PORT`, `HDO_IDIOMA`, `HDO_TEMA`, `HDO_FIRMA_CLAVE`, `HDO_MOSTRAR_AUTORIA` | las mismas con `UBT_` |
+| carpeta del NAS | `/share/Container/hdo-iso-converter` | `/share/Container/uhd-blu-ray-toolkit` |
+
+Lo que **no** cambia: el path local `ISO2MKVFEL` (la memoria de Claude va por
+esa ruta) y la clave por defecto de la firma, `uhd-blu-ray-toolkit/firma/v1`:
+cambiarla dejaría sin reconocer todos los MKV firmados.
+
+La mudanza tiene que ser **transparente** para quien ya la tiene instalada (lo
+pidió el usuario), y se sostiene en tres piezas:
+- **Las variables viejas se siguen leyendo**: `entorno.variable("X")` lee
+  `UBT_X` y, si no está o está vacía, `HDO_X`; el compose hace lo mismo con
+  `${UBT_X:-${HDO_X:-…}}`. Un `.env` de antes funciona sin tocarlo. Lo vigila
+  `test_entorno`, que además falla si alguien lee un `HDO_`/`UBT_` a pelo.
+- **Los datos no se mueven**: viven en las carpetas del `.env`, y la v1.0 lee
+  exactamente lo que leía la v3.5.0.
+- **El aviso llega por donde ya miran**: la app vieja pregunta por
+  actualizaciones al repo viejo, así que allí va una última release (v3.6.0)
+  que solo avisa de la mudanza y trae los comandos. Antes se desactiva su
+  `publish-docker.yml`, para que no publique una imagen v3.6.0 que apague el
+  aviso sin mudar a nadie. Los comandos están en el README y en
+  `docs/TECHNICAL.md` («Coming from hdo-iso-converter»): `docker compose down`
+  ANTES de cambiar el compose —con el nuevo, Compose ya no conoce el
+  contenedor viejo, que seguiría ocupando el puerto—, bajar el compose nuevo,
+  `pull` y `up -d`.
+
+**El repo nuevo lleva todo el historial, pero no los tags v2.x/v3.x.** Con los
+dos conviviendo, el aviso de actualizaciones (que busca la versión semver más
+alta) le diría a quien tenga la v1.0 que hay una «actualización» a la v3.5.0.
+Las versiones que cita este fichero (v2.7+, v3.3.1…) son del repo viejo. El
+repo viejo **no se borra**: la GPL obliga a mantener tres años la oferta de
+fuentes de las imágenes que publicó, y lleva sus releases.
+
+`test_entorno::TestNoQuedaNingunEnlaceAlRepoViejo` falla con cualquier enlace
+al repo o a la imagen viejos fuera de la sección que explica la mudanza (y de
+este fichero, que cuenta la historia).
 
 Dos renombrados, y los dos por lo mismo — que el nombre describiera lo que la app
 hace:
@@ -3128,7 +3167,7 @@ Cachea el resultado en memoria (`_VERSION_CACHE`) — la versión no cambia en r
 ### Chequeo de actualizaciones
 
 `GET /api/version/check-updates?force=&simulate_current=` consulta la API pública de GitHub:
-1. Intenta `/repos/Aldicarus/hdo-iso-converter/releases?per_page=30` (preferido — trae las notas de todos los releases, también los intermedios), filtrando a tags semver sin draft ni prerelease
+1. Intenta `/repos/Aldicarus/uhd-blu-ray-toolkit/releases?per_page=30` (preferido — trae las notas de todos los releases, también los intermedios), filtrando a tags semver sin draft ni prerelease
 2. Si vacío → fallback a `/tags?per_page=30`, filtra a semver tags y elige el mayor (común si el repo solo tagea via `git tag` sin formalizar Releases)
 
 **Un 403/429 de GitHub no es «no hay versiones»**: no se gasta otra petición en `/tags`, se contesta con lo que la caché sabía —aunque esté caducada, y con su aviso de actualización— más `stale` y `error`, y la caché NO se reescribe. Seguía como un éxito vacío: guardaba `latest=""` y el aviso de una versión ya conocida se apagaba otra hora. Por eso la caché se lee también con `force=true`; lo que `force` salta es servirla como respuesta fresca.
@@ -3163,7 +3202,7 @@ copyleft **no alcanza al código de la app**, que es MIT (`LICENSE`).
 
 Lo que sí obliga es **publicar la imagen**. Son dos cosas distintas y se
 confunden con facilidad: el repositorio no distribuye ningún binario y
-`ghcr.io/aldicarus/hdo-iso-converter` sí, así que conveyarla activa la
+`ghcr.io/aldicarus/uhd-blu-ray-toolkit` sí, así que conveyarla activa la
 GPLv2 §3 y la GPLv3 §6. Todo el detalle está en `THIRD-PARTY-NOTICES.md`,
 que **viaja dentro de la imagen** —el objeto es esa, no GitHub— y se sirve
 en `/static/`.
@@ -3356,12 +3395,13 @@ Cinco decisiones que no son obvias:
   es pública. No abre ninguna puerta ni afirma nada ante terceros, así que
   nadie tiene incentivo para imitar una marca invisible que no concede nada.
   Lo único que impide es que un MKV ajeno coincida por casualidad.
-  `HDO_FIRMA_CLAVE` permite poner otra sin tocar el código.
+  `UBT_FIRMA_CLAVE` (o la `HDO_FIRMA_CLAVE` de antes de la v1.0) permite
+  poner otra sin tocar el código.
 
 **Se lee en Tab 2**, que es donde el usuario va a abrir el fichero de todos
 modos para mirarle la radiografía: `analyze_mkv` rellena
 `hecho_con_esta_app` y la card del fichero pinta un chip verde — **pero solo
-donde `HDO_MOSTRAR_AUTORIA` está puesta**, que por defecto no lo está. La
+donde `UBT_MOSTRAR_AUTORIA` está puesta**, que por defecto no lo está. La
 marca se escribe en TODAS las instalaciones (es lo que permite reconocer un
 MKV hecho con la app venga de donde venga); lo que no se enseña es el chip,
 porque es una herramienta del autor y no parte del producto.
@@ -3379,7 +3419,7 @@ porque es una herramienta del autor y no parte del producto.
   que quien lo lea puede activarla y ver el chip en sus propios ficheros —
   donde, por cierto, dirá la verdad. Lo que se evita es exponer la función a
   quien no la ha pedido, no esconderla. La alternativa con exclusividad real
-  (que el gate fuera tener `HDO_FIRMA_CLAVE` propia) se evaluó y se descartó:
+  (que el gate fuera tener `UBT_FIRMA_CLAVE` propia) se evaluó y se descartó:
   obligaba a re-firmar lo ya firmado y quitaba lo más útil — reconocer un MKV
   que OTRO haya hecho con la app. El veredicto
 se persiste con el análisis y **no puede quedarse viejo**, porque la caché va
@@ -4773,7 +4813,7 @@ lo honesto: el catálogo se pide al arrancar y media interfaz ya está pintada.
 
 **La primera vez se detecta de `Accept-Language`**, y lo que hace es **fijar
 el ajuste**, no decidir por petición. Orden: `app_settings.json` >
-`HDO_IDIOMA` > detección > castellano — `HDO_IDIOMA` por delante porque
+`UBT_IDIOMA` > detección > castellano — `UBT_IDIOMA` por delante porque
 ponerlo en el `.env` es tan deliberado como pulsar el botón.
 
 - **La señal de «nadie lo ha elegido» es la AUSENCIA de la clave `idioma`**, y
@@ -6174,12 +6214,12 @@ sudo docker system prune -f
 
 # 2. Pull del repo (alpine/git container — el repo fue clonado como root y git
 #    rechaza la operación sin safe.directory).
-docker run --rm -v /share/Container/hdo-iso-converter:/repo -w /repo alpine/git -c safe.directory=/repo pull
+docker run --rm -v /share/Container/uhd-blu-ray-toolkit:/repo -w /repo alpine/git -c safe.directory=/repo pull
 
 # 3. Rebuild + up del contenedor. REQUIERE `cd` al subdirectorio `docker/`
 #    porque docker-compose.yml vive ahí, no en la raíz del repo. TMPDIR a ZFS
 #    porque /tmp en QNAP es tmpfs pequeño y el build agota espacio.
-cd /share/Container/hdo-iso-converter/docker
+cd /share/Container/uhd-blu-ray-toolkit/docker
 sudo TMPDIR=/share/ZFS20_DATA/Container/tmp docker compose up -d --build
 ```
 

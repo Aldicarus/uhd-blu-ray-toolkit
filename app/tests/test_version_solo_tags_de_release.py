@@ -68,8 +68,22 @@ class TestElComportamientoConEsteRepo(unittest.TestCase):
             self.skipTest("git no disponible")
         return r.stdout.strip()
 
+    def _hay_release(self) -> bool:
+        r = subprocess.run(["git", "tag", "--list", "v*"], cwd=RAIZ,
+                           capture_output=True, text=True, timeout=10)
+        return bool(r.stdout.strip())
+
     def test_con_el_filtro_la_version_es_parseable_como_semver(self):
         v = self._describe("--match", "v*")
+        if not self._hay_release():
+            # El repo nuevo antes de su primera release (empezó en la v1.0 con
+            # el historial del viejo, pero sin sus tags): sin tag de versión,
+            # `--always` da el SHA, que es lo correcto. Lo que este guard
+            # protege es que la versión no sea un tag AUXILIAR.
+            self.assertRegex(v, r"^[0-9a-f]{7,}$", (
+                f"\nsin ninguna release, `git describe --match v*` da {v!r} "
+                "en vez del SHA"))
+            return
         self.assertRegex(v, r"^v\d+\.\d+\.\d+", (
             f"\n`git describe --match v*` da {v!r}, que no empieza por un "
             "tag de versión"))

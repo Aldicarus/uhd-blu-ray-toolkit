@@ -3,7 +3,7 @@
 > This is the full technical description: configuration, volumes, the pipeline of each tool, the API and local development. For an overview of the app and how to install it, see the [README](../README.md).
 
 > [!NOTE]
-> The technical names (the GitHub repository and the Docker image `ghcr.io/aldicarus/hdo-iso-converter:latest`) are kept so that existing deployments do not break. The public name, and the one shown in the UI, is **UHD Blu-ray Toolkit**.
+> Until v1.0 the project was published as **hdo-iso-converter**: repository, Docker image, container and `HDO_*` variables. Everything now carries the app's name, and an existing installation keeps working: see [Coming from hdo-iso-converter](#coming-from-hdo-iso-converter).
 
 ## Four tools in one
 
@@ -18,7 +18,7 @@ The internal panel IDs (`tab-panel-1/2/3/4`) are kept for historical compatibili
 
 ## Quick start
 
-The official image is published on GHCR as `ghcr.io/aldicarus/hdo-iso-converter:latest` (linux/amd64). There is nothing to compile.
+The official image is published on GHCR as `ghcr.io/aldicarus/uhd-blu-ray-toolkit:latest` (linux/amd64). There is nothing to compile.
 
 ### Option A — Command line
 
@@ -27,8 +27,8 @@ The official image is published on GHCR as `ghcr.io/aldicarus/hdo-iso-converter:
 mkdir uhd-bluray-toolkit && cd uhd-bluray-toolkit
 
 # 2. Download docker-compose.yml and the sample .env
-curl -LO https://raw.githubusercontent.com/Aldicarus/hdo-iso-converter/main/docker/docker-compose.yml
-curl -L https://raw.githubusercontent.com/Aldicarus/hdo-iso-converter/main/docker/.env.example -o .env
+curl -LO https://raw.githubusercontent.com/Aldicarus/uhd-blu-ray-toolkit/main/docker/docker-compose.yml
+curl -L https://raw.githubusercontent.com/Aldicarus/uhd-blu-ray-toolkit/main/docker/.env.example -o .env
 
 # 3. Edit .env with your host's paths (see "Configuration")
 nano .env
@@ -38,7 +38,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Open **http://localhost:8090** (or `HDO_PORT` if you changed it).
+Open **http://localhost:8090** (or `UBT_PORT` if you changed it).
 
 To update to a newer version:
 
@@ -63,8 +63,8 @@ Both are graphical apps for managing Docker containers, and both support `docker
 Only if you want to modify the code:
 
 ```bash
-git clone https://github.com/Aldicarus/hdo-iso-converter.git
-cd hdo-iso-converter
+git clone https://github.com/Aldicarus/uhd-blu-ray-toolkit.git
+cd uhd-blu-ray-toolkit
 cp docker/.env.example docker/.env
 # Edit docker/.env
 
@@ -79,13 +79,38 @@ curl http://localhost:8090/api/health
 # {"status": "ok"}
 ```
 
+### Coming from hdo-iso-converter
+
+Until v1.0 the app was published as hdo-iso-converter. Nothing in your data changes: projects, settings and files live in the folders of your `.env`, and the new version reads them as they are. What changes is where the app comes from, and the name of its container:
+
+| Before v1.0 | Now |
+|---|---|
+| `github.com/Aldicarus/hdo-iso-converter` | `github.com/Aldicarus/uhd-blu-ray-toolkit` |
+| image `ghcr.io/aldicarus/hdo-iso-converter` | image `ghcr.io/aldicarus/uhd-blu-ray-toolkit` |
+| service and container `hdo-iso-converter` | service and container `uhd-blu-ray-toolkit` |
+| `HDO_PORT`, `HDO_MOSTRAR_AUTORIA`, `HDO_IDIOMA`, `HDO_TEMA`, `HDO_FIRMA_CLAVE` | the same with `UBT_` (`UBT_PORT`…). **The `HDO_` ones are still read**, so your `.env` works unchanged; if both are set, `UBT_` wins |
+
+With the published image, in the folder where your `docker-compose.yml` and `.env` are:
+
+```bash
+docker compose down        # stops and removes the old container; your folders are not touched
+curl -LO https://raw.githubusercontent.com/Aldicarus/uhd-blu-ray-toolkit/main/docker/docker-compose.yml
+docker compose pull && docker compose up -d
+```
+
+`down` has to run **before** replacing the file: with the new one in place, Compose no longer knows the old container, which would keep holding the port. In Container Station or Portainer, stop and remove the old application, and create the new one with the new `docker-compose.yml` and the same `.env`.
+
+If you build from source, the new repository carries the same history, so pointing your clone at it is enough: `git remote set-url origin https://github.com/Aldicarus/uhd-blu-ray-toolkit.git`, then `docker compose down` before pulling, and `up -d --build` as always.
+
+The old image (`docker image rm ghcr.io/aldicarus/hdo-iso-converter`) can be deleted once the new one is running.
+
 ## Configuration
 
 Variables in `docker/.env`:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `HDO_PORT` | no | `8090` | Host port exposed |
+| `UBT_PORT` | no | `8090` | Host port exposed. `HDO_PORT`, its name before v1.0, is still read |
 | `TZ` | no | `Europe/Madrid` | Container time zone |
 | `ISOS_PATH` | **yes** | — | Folder with the source ISOs / BDMV folders / M2TS files (read-only) |
 | `LIBRARY_PATH` | no | — | Root of the MKV library (ro). Tabs 2 and 3 browse this tree with the file browser. If it is not set, the tabs only see `/mnt/output` |
@@ -351,16 +376,16 @@ The session's `output_workflow` field records how each project ended: `keep_cmv2
 A CLI tool to review every historical CMv4.0 session and reclassify it with the current model:
 
 ```bash
-docker exec hdo-iso-converter python3 -m tools.audit_cmv40_bins
+docker exec uhd-blu-ray-toolkit python3 -m tools.audit_cmv40_bins
 
 # Only wasted jobs (processed with synthetic bins)
-docker exec hdo-iso-converter python3 -m tools.audit_cmv40_bins --filter-keep
+docker exec uhd-blu-ray-toolkit python3 -m tools.audit_cmv40_bins --filter-keep
 
 # Download the bins again from Drive if they are no longer in the workdir
-docker exec hdo-iso-converter python3 -m tools.audit_cmv40_bins --redownload
+docker exec uhd-blu-ray-toolkit python3 -m tools.audit_cmv40_bins --redownload
 
 # Detail of one case: dumps the L8 combos with their deltas from neutral
-docker exec hdo-iso-converter python3 -m tools.audit_cmv40_bins --detail "Black Phone 2"
+docker exec uhd-blu-ray-toolkit python3 -m tools.audit_cmv40_bins --detail "Black Phone 2"
 ```
 
 Useful to calibrate the classifier's thresholds or to decide which historical jobs to redo.
@@ -433,7 +458,7 @@ Same frame as the other tabs: a project column, navy sub-tabs, stacked cards and
 ## Project structure
 
 ```
-hdo-iso-converter/                ← repository / Docker image (technical name)
+uhd-blu-ray-toolkit/                ← repository (and the name of the image and the container)
 ├── .github/workflows/
 │   ├── publish-docker.yml        ← Publishes the image to ghcr.io on every release
 │   └── tests.yml                 ← The test suite on every push and PR

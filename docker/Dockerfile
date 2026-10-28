@@ -22,7 +22,7 @@ RUN sh -c 'git describe --tags --match "v*" --always 2>/dev/null > /VERSION || t
 # 22.04 en la v88 (2024-10), y 22.04 sale del soporte estándar el 2027-05-31.
 FROM ubuntu:24.04
 
-LABEL org.opencontainers.image.source=https://github.com/Aldicarus/hdo-iso-converter
+LABEL org.opencontainers.image.source=https://github.com/Aldicarus/uhd-blu-ray-toolkit
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -216,7 +216,7 @@ LABEL org.opencontainers.image.revision="${APP_COMMIT}"
 # La imagen NO es solo MIT: lleva binarios GPL. El SPDX describe el conjunto,
 # que es lo que un escáner de cumplimiento espera encontrar aquí.
 LABEL org.opencontainers.image.licenses="MIT AND GPL-3.0-or-later AND GPL-2.0 AND GPL-2.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND Apache-2.0 AND MPL-2.0"
-LABEL org.opencontainers.image.documentation="https://github.com/Aldicarus/hdo-iso-converter/blob/main/THIRD-PARTY-NOTICES.md"
+LABEL org.opencontainers.image.documentation="https://github.com/Aldicarus/uhd-blu-ray-toolkit/blob/main/THIRD-PARTY-NOTICES.md"
 
 # La clave de TMDb con la que la app funciona sin configurar nada. NO está en
 # el repositorio: la inyecta el workflow de GHCR desde un secreto, así que

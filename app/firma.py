@@ -40,8 +40,9 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 from pathlib import Path
+
+import entorno
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +53,11 @@ MKVPROPEDIT_BIN = "mkvpropedit"
 LONGITUD_UID = 32
 
 # Ver el docstring del módulo: esto no es un secreto, es una constante que
-# distingue nuestros ficheros de los de cualquier otro. `HDO_FIRMA_CLAVE`
-# permite usar una propia sin tocar el código.
-CLAVE = os.environ.get("HDO_FIRMA_CLAVE", "uhd-blu-ray-toolkit/firma/v1").encode()
+# distingue nuestros ficheros de los de cualquier otro. `UBT_FIRMA_CLAVE` (o
+# la `HDO_FIRMA_CLAVE` de antes de la v1.0) permite usar una propia sin tocar
+# el código. El valor por defecto NO se toca nunca: cambiarlo dejaría sin
+# reconocer todos los MKV firmados hasta ese día.
+CLAVE = entorno.variable("FIRMA_CLAVE", "uhd-blu-ray-toolkit/firma/v1").encode()
 
 # Un `mkvmerge -J` de un MKV lee cabeceras, no datos: es cuestión de
 # segundos incluso en un UHD de 90 GB. El tope generoso es por si el pool
@@ -62,7 +65,7 @@ CLAVE = os.environ.get("HDO_FIRMA_CLAVE", "uhd-blu-ray-toolkit/firma/v1").encode
 TIMEOUT_S = 300
 
 
-# Valores que cuentan como «sí» en `HDO_MOSTRAR_AUTORIA`. Se aceptan varios
+# Valores que cuentan como «sí» en `UBT_MOSTRAR_AUTORIA`. Se aceptan varios
 # porque la variable la escribe una persona en un `.env`, no un programa.
 _AFIRMATIVOS = {"1", "true", "yes", "si", "sí", "on"}
 
@@ -72,8 +75,8 @@ def se_muestra_la_autoria() -> bool:
 
     **Por defecto NO.** La marca se escribe en todas las instalaciones —eso no
     cambia, y es lo que permite reconocer un MKV hecho con la app venga de
-    donde venga—, pero el chip solo se sirve donde `HDO_MOSTRAR_AUTORIA` está
-    puesta. Es una función personal del autor, no parte del producto.
+    donde venga—, pero el chip solo se sirve donde `UBT_MOSTRAR_AUTORIA` (o la
+    `HDO_MOSTRAR_AUTORIA` de antes de la v1.0) está puesta. Es una función personal del autor, no parte del producto.
 
     Se lee en cada llamada y no al importar: el coste es un `dict.get` y así
     un test puede cambiarla sin recargar el módulo.
@@ -83,7 +86,7 @@ def se_muestra_la_autoria() -> bool:
     propios ficheros —donde, por cierto, dirá la verdad—. Lo que se evita es
     exponer la función a quien no la ha pedido, no esconderla.
     """
-    return os.environ.get("HDO_MOSTRAR_AUTORIA", "").strip().lower() in _AFIRMATIVOS
+    return entorno.variable("MOSTRAR_AUTORIA").strip().lower() in _AFIRMATIVOS
 
 
 def rasgos_de(datos: dict) -> str:

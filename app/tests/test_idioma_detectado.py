@@ -105,7 +105,7 @@ class DetectaCase(unittest.TestCase):
         # test deja su contenido al siguiente.
         self.addCleanup(setattr, st, "_cache", None)
         st._cache = None
-        parche = mock.patch.dict(os.environ, {"HDO_IDIOMA": ""})
+        parche = mock.patch.dict(os.environ, {"UBT_IDIOMA": "", "HDO_IDIOMA": ""})
         parche.start()
         self.addCleanup(parche.stop)
 
@@ -137,13 +137,19 @@ class TestCuandoSeDetecta(DetectaCase):
         self.assertIsNone(self.st.fijar_idioma_detectado("de-DE"))
         self.assertEqual(self.st.get_idioma(), "es")
 
-    def test_hdo_idioma_del_env_tambien_gana(self):
+    def test_ubt_idioma_del_env_tambien_gana(self):
         """Ponerlo en el `.env` es tan deliberado como pulsar el botón."""
-        with mock.patch.dict(os.environ, {"HDO_IDIOMA": "ca"}):
+        with mock.patch.dict(os.environ, {"UBT_IDIOMA": "ca"}):
             self.assertIsNone(self.st.fijar_idioma_detectado("en-GB"))
             self.assertEqual(self.st.get_idioma(), "ca")
         # Y sigue sin elegirse: quitar la variable vuelve al default.
         self.assertFalse(self.st.idioma_elegido())
+
+    def test_la_hdo_idioma_de_antes_de_la_v1_tambien(self):
+        """El `.env` de quien venga de hdo-iso-converter."""
+        with mock.patch.dict(os.environ, {"HDO_IDIOMA": "ca"}):
+            self.assertIsNone(self.st.fijar_idioma_detectado("en-GB"))
+            self.assertEqual(self.st.get_idioma(), "ca")
 
     def test_sin_cabecera_no_se_fija_nada(self):
         """Si el primer GET es un healthcheck, la instalación NO se queda

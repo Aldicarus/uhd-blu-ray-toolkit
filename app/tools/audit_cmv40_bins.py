@@ -11,7 +11,7 @@ Analiza TODAS las sesiones CMv4.0 persistidas y reporta:
 USO
 
   Dentro del contenedor Docker:
-    docker exec hdo-iso-converter python3 -m tools.audit_cmv40_bins
+    docker exec uhd-blu-ray-toolkit python3 -m tools.audit_cmv40_bins
 
   Opciones:
     --redownload   Descarga el bin del Drive si no hay análisis previo ni

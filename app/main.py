@@ -1271,7 +1271,7 @@ async def app_version_check_updates(force: bool = False, simulate_current: str =
     # 2. /tags fallback — si no hay releases formales, listamos tags y
     #    no hay notas que mostrar.
     import httpx
-    repo = "Aldicarus/hdo-iso-converter"
+    repo = "Aldicarus/uhd-blu-ray-toolkit"
     data = {}
     release_notes_str = ""
     release_url_str = ""

@@ -34,7 +34,8 @@ DIRECTORIOS = ("CONFIG_DIR", "TMP_DIR", "OUTPUT_DIR", "LIBRARY_DIR", "ISOS_DIR",
                "MOUNT_BASE", "CMV40_RPU_DIR")
 #: Lo que cambia el comportamiento y no tiene que llegar de la máquina de nadie.
 FUERA_DEL_ENTORNO = ("TMDB_API_KEY", "GOOGLE_API_KEY", "CMV40_DRIVE_FOLDER_URL",
-                     "CMV40_DRIVE_FOLDER_ID", "CMV40_SHEET_URL", "HDO_IDIOMA",
+                     "CMV40_DRIVE_FOLDER_ID", "CMV40_SHEET_URL", "UBT_IDIOMA",
+                     "UBT_TEMA", "UBT_MOSTRAR_AUTORIA", "UBT_FIRMA_CLAVE", "HDO_IDIOMA",
                      "HDO_TEMA", "HDO_MOSTRAR_AUTORIA", "HDO_FIRMA_CLAVE")
 
 #: Los skips que se esperan en CI (Linux con node y Chrome), con su motivo.

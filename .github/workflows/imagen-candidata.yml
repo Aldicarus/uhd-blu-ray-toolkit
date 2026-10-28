@@ -55,7 +55,7 @@ jobs:
           file: docker/Dockerfile
           platforms: linux/amd64
           push: false
-          tags: hdo-iso-converter:candidata
+          tags: uhd-blu-ray-toolkit:candidata
           build-args: |
             APP_VERSION=${{ steps.version.outputs.valor }}
             APP_COMMIT=${{ github.sha }}

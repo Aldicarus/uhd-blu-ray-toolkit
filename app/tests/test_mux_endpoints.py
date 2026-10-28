@@ -1370,6 +1370,22 @@ class TestLaFicha(MuxCase):
                         or setattr(tmdb, "search_movies", originales[1])
                         or setattr(tmdb, "fetch_details", originales[2]))
 
+    def crear(self, **body):
+        """Sin la ficha que la creación lanza en segundo plano: aquí la pide
+        cada test. Si la de la creación terminaba antes de que el test marcara
+        el proyecto como terminado, la del test ya no cambiaba el nombre y el
+        proyecto seguía «terminado»: un fallo intermitente de la suite entera
+        (2026-10-28), que aislado no salía nunca."""
+        real = self.mux._hidratar_tmdb
+
+        async def ninguna(pid, tmdb_id=None):
+            return False
+        self.mux._hidratar_tmdb = ninguna
+        try:
+            return super().crear(**body)
+        finally:
+            self.mux._hidratar_tmdb = real
+
     def test_con_la_ficha_el_nombre_lleva_su_titulo_salvo_si_se_edito(self):
         p = self.crear()
         self.elegir(p["id"], A_VIDEO, B_DCP)

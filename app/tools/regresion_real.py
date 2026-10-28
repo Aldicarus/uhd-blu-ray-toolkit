@@ -572,7 +572,8 @@ def _preparar_entorno(base: Path) -> None:
         d.mkdir(parents=True, exist_ok=True)
         os.environ[clave] = str(d)
     os.environ["ISOS_DIR"] = "/mnt"
-    os.environ.setdefault("HDO_IDIOMA", "es")
+    os.environ.setdefault("UBT_IDIOMA", "es")
+    os.environ.setdefault("HDO_IDIOMA", "es")  # las imágenes de antes de la v1.0
     # TMDb fuera: la ficha cambiaría el nombre del MKV según lo que conteste
     # la red ese día, y eso no es de las herramientas.
     os.environ["TMDB_APP_KEY"] = ""

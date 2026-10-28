@@ -1658,7 +1658,7 @@ function avisarFinDeTrabajo(tab) {
     try {
       const n = new Notification('UHD Blu-ray Toolkit', {
         body: tr('core.el_trabajo_ha_terminado', {nombre: nombre}),
-        tag: `hdo-fin-${tab}`,       // sustituye al anterior del mismo tab
+        tag: `ubt-fin-${tab}`,       // sustituye al anterior del mismo tab
       });
       n.onclick = () => { window.focus(); try { n.close(); } catch (_) {} };
     } catch (_) { /* el título parpadeante ya cumple */ }

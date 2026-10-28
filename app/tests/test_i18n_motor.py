@@ -118,6 +118,7 @@ class TestElIdiomaEsUnAjusteGlobal(unittest.TestCase):
         self.addCleanup(lambda: setattr(st, "CONFIG_DIR", orig[0]))
         env = mock.patch.dict(os.environ, {}, clear=False)
         env.start(); self.addCleanup(env.stop)
+        os.environ.pop("UBT_IDIOMA", None)
         os.environ.pop("HDO_IDIOMA", None)
         i18n.limpiar_cache(); self.addCleanup(i18n.limpiar_cache)
 

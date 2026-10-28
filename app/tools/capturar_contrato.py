@@ -5,8 +5,8 @@ fijar, sobre un MKV real y tres RPU reales —el de un disco (P7 CMv2.9), un bin
 CMv4.0 y uno ya convertido a Profile 8.1—, y escribe un JSON por stdout. Solo
 lee: el export por niveles va a un temporal que se borra al terminar.
 
-    docker cp app/tools/capturar_contrato.py hdo-iso-converter:/tmp/
-    docker exec hdo-iso-converter python3 /tmp/capturar_contrato.py \\
+    docker cp app/tools/capturar_contrato.py uhd-blu-ray-toolkit:/tmp/
+    docker exec uhd-blu-ray-toolkit python3 /tmp/capturar_contrato.py \\
         "/mnt/library/…/Peli.mkv" /mnt/tmp/cmv40/<proyecto> > capturado.json
 
 Los RPU salen del workdir de un proyecto CMv4.0 (`RPU_source.bin`,

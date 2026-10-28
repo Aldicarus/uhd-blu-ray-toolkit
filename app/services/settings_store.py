@@ -34,6 +34,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
+import entorno
+
 _logger = logging.getLogger(__name__)
 
 CONFIG_DIR = Path(os.environ.get("CONFIG_DIR", "/config"))
@@ -90,12 +92,12 @@ TEMA_POR_DEFECTO = "sistema"
 
 
 def get_tema() -> str:
-    """Prioridad: settings.json > `HDO_TEMA` > seguir al sistema."""
+    """Prioridad: settings.json > `UBT_TEMA` (o `HDO_TEMA`) > seguir al sistema."""
     with _lock:
         stored = _load().get("tema", "").strip().lower()
     if stored in TEMAS:
         return stored
-    env = os.environ.get("HDO_TEMA", "").strip().lower()
+    env = entorno.variable("TEMA").strip().lower()
     if env in TEMAS:
         return env
     return TEMA_POR_DEFECTO
@@ -119,12 +121,12 @@ def update_tema(new_value: str | None) -> None:
 
 
 def get_idioma() -> str:
-    """Prioridad: settings.json > `HDO_IDIOMA` > castellano."""
+    """Prioridad: settings.json > `UBT_IDIOMA` (o `HDO_IDIOMA`) > castellano."""
     with _lock:
         stored = _load().get("idioma", "").strip().lower()
     if stored in IDIOMAS:
         return stored
-    env = os.environ.get("HDO_IDIOMA", "").strip().lower()
+    env = entorno.variable("IDIOMA").strip().lower()
     if env in IDIOMAS:
         return env
     return IDIOMA_POR_DEFECTO
@@ -206,7 +208,7 @@ def detectar_idioma(accept_language: str | None) -> str | None:
 
 
 def fijar_idioma_detectado(accept_language: str | None) -> str | None:
-    """Detecta y PERSISTE, solo si nadie lo ha elegido y no hay `HDO_IDIOMA`.
+    """Detecta y PERSISTE, solo si nadie lo ha elegido y no hay `UBT_IDIOMA`.
 
     Persiste —en vez de decidirlo por petición— porque el idioma no es solo la
     interfaz: el servidor escribe el **log al escribirlo**, no al mostrarlo, y
@@ -217,8 +219,8 @@ def fijar_idioma_detectado(accept_language: str | None) -> str | None:
     """
     if idioma_elegido():
         return None
-    # `HDO_IDIOMA` en el `.env` es tan deliberado como pulsar el botón.
-    if os.environ.get("HDO_IDIOMA", "").strip().lower() in IDIOMAS:
+    # `UBT_IDIOMA` en el `.env` es tan deliberado como pulsar el botón.
+    if entorno.variable("IDIOMA").strip().lower() in IDIOMAS:
         return None
     detectado = detectar_idioma(accept_language)
     if not detectado:

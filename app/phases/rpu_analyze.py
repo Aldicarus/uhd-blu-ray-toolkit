@@ -32,7 +32,7 @@ from pathlib import Path
 from models import L2Combo, L8Combo
 from phases.cmv40_strategy import resolve_plan, va_por_drop_in
 
-logger = logging.getLogger("hdo.rpu_analyze")
+logger = logging.getLogger("ubt.rpu_analyze")
 
 DOVI_TOOL_BIN = "dovi_tool"
 
