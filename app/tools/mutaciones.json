@@ -6781,8 +6781,8 @@
  {
   "id": "T9V-10 el reintento con el M2TS entrega otro montaje",
   "fichero": "app/routers/tab1.py",
-  "viejo": "        if len(clips) != 1:\n            raise RuntimeError(tr('tab1.reintento_m2ts_no_con_varias_versiones',\n",
-  "nuevo": "        if False:\n            raise RuntimeError(tr('tab1.reintento_m2ts_no_con_varias_versiones',\n",
+  "viejo": "    varias_versiones = len(versiones_del_aviso(avisos)) > 1\n",
+  "nuevo": "    varias_versiones = False\n",
   "modulos": [
    "test_orquestador_tab1"
   ]
