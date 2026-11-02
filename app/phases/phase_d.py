@@ -33,6 +33,8 @@ import shlex
 import time
 from pathlib import Path
 
+from phases import salida_mkvmerge
+
 MKVMERGE_BIN  = "mkvmerge"
 MKVEXTRACT_BIN = "mkvextract"
 MIN_MPLS_SIZE = 200  # 200 bytes — ISOs custom tienen MPLS muy pequeños (~1.5 KB)
@@ -100,6 +102,18 @@ def is_playlist_assertion_line(text: str) -> bool:
     mata el proceso en discos UHD multi-segmento. Se busca el nombre de la
     función (estable entre versiones) o la expresión del assertion."""
     return "add_filelists_for_playlists" in text or "play_items.size()" in text
+
+
+def error_de_mkvmerge(returncode: int, errores: list[str]) -> str:
+    """El motivo de un mkvmerge que no terminó bien, con SU error si lo dijo.
+
+    Va al mensaje de la excepción, que es lo que llega al aviso del proyecto y
+    al historial: con solo el código, quien lo lee tiene que ir al log.
+    """
+    if errores:
+        return tr('phase_d.mkvmerge_fallo_con_error', returncode=returncode,
+                  error=errores[-1])
+    return tr('phase_d.mkvmerge_termino_de_forma_anomala_codigo', returncode=returncode)
 
 
 def m2ts_covers_title(
@@ -191,6 +205,7 @@ async def run_phase_d(
     last_line_at = time.monotonic()
     hung = False
     playlist_assert = False
+    errores: list[str] = []
 
     async def _watchdog():
         nonlocal hung
@@ -216,11 +231,11 @@ async def run_phase_d(
             # el orquestador reintente con el M2TS principal directo.
             if is_playlist_assertion_line(text):
                 playlist_assert = True
-            # --gui-mode: "#GUI#progress 45%" → "Progress: 45%"
-            if text.startswith("#GUI#progress "):
-                text = "Progress: " + text.removeprefix("#GUI#progress ")
-            elif text.startswith("#GUI#"):
-                continue  # Descartar otras líneas de control GUI
+            if (error := salida_mkvmerge.error_de(text)):
+                errores.append(error)
+            text = salida_mkvmerge.traducir(text)
+            if text is None:
+                continue
             if log_callback:
                 await log_callback(text)
         await proc.wait()
@@ -251,7 +266,7 @@ async def run_phase_d(
     # los códigos negativos por señal (SIGABRT = -6): el `>= 2` antiguo NO
     # los capturaba y el crash se enmascaraba aguas abajo.
     if proc.returncode not in (0, 1):
-        raise RuntimeError(tr('phase_d.mkvmerge_termino_de_forma_anomala_codigo', returncode=proc.returncode))
+        raise RuntimeError(error_de_mkvmerge(proc.returncode, errores))
 
     if not Path(out_path).exists():
         raise RuntimeError(tr('phase_d.mkvmerge_no_genero_el_mkv_intermedio', out_path=out_path))

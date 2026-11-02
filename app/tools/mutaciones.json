@@ -6601,5 +6601,98 @@
   "modulos": [
    "test_entorno"
   ]
+ },
+ {
+  "id": "T9E-1 los errores de mkvmerge vuelven a tirarse",
+  "fichero": "app/phases/salida_mkvmerge.py",
+  "viejo": "    if linea.startswith(_ERROR):\n        return \"Error: \" + linea.removeprefix(_ERROR)\n",
+  "nuevo": "",
+  "modulos": [
+   "test_salida_mkvmerge",
+   "test_fases_de_tab1"
+  ]
+ },
+ {
+  "id": "T9E-2 los avisos de mkvmerge vuelven a tirarse",
+  "fichero": "app/phases/salida_mkvmerge.py",
+  "viejo": "    if linea.startswith(_AVISO):\n        return \"Warning: \" + linea.removeprefix(_AVISO)\n",
+  "nuevo": "",
+  "modulos": [
+   "test_salida_mkvmerge",
+   "test_fases_de_tab1"
+  ]
+ },
+ {
+  "id": "T9E-3 el mensaje de un mkvmerge fallido vuelve a ser solo el código",
+  "fichero": "app/phases/phase_d.py",
+  "viejo": "    if errores:\n        return tr('phase_d.mkvmerge_fallo_con_error'",
+  "nuevo": "    if False:\n        return tr('phase_d.mkvmerge_fallo_con_error'",
+  "modulos": [
+   "test_fases_de_tab1"
+  ]
+ },
+ {
+  "id": "T9E-4 la Fase E vuelve a filtrar las líneas #GUI# por su cuenta",
+  "fichero": "app/phases/phase_e.py",
+  "viejo": "            text = salida_mkvmerge.traducir(text)\n            if text is None:\n                continue\n",
+  "nuevo": "            if text.startswith(\"#GUI#progress \"):\n                text = \"Progress: \" + text.removeprefix(\"#GUI#progress \")\n            elif text.startswith(\"#GUI#\"):\n                continue\n",
+  "modulos": [
+   "test_fases_de_tab1",
+   "test_salida_mkvmerge"
+  ]
+ },
+ {
+  "id": "T9E-5 la Fase E no guarda el error de mkvmerge",
+  "fichero": "app/phases/phase_e.py",
+  "viejo": "            if (error := salida_mkvmerge.error_de(text)):\n                errores.append(error)\n",
+  "nuevo": "",
+  "modulos": [
+   "test_fases_de_tab1"
+  ]
+ },
+ {
+  "id": "T9E-6 la Fase D no guarda el error de mkvmerge",
+  "fichero": "app/phases/phase_d.py",
+  "viejo": "            if (error := salida_mkvmerge.error_de(text)):\n                errores.append(error)\n",
+  "nuevo": "",
+  "modulos": [
+   "test_fases_de_tab1"
+  ]
+ },
+ {
+  "id": "T9E-7 Multiplexar no pone el error de mkvmerge en el aviso",
+  "fichero": "app/phases/mux_pipeline.py",
+  "viejo": "        if errores:\n            raise RuntimeError(tr('mux.mkvmerge_fallo_con_error'",
+  "nuevo": "        if False:\n            raise RuntimeError(tr('mux.mkvmerge_fallo_con_error'",
+  "modulos": [
+   "test_mux_endpoints"
+  ]
+ },
+ {
+  "id": "T9E-8 Multiplexar vuelve a no contar los avisos de mkvmerge",
+  "fichero": "app/phases/mux_pipeline.py",
+  "viejo": "            if linea.startswith(\"Warning: \"):\n                avisos += 1\n",
+  "nuevo": "            if linea.lower().startswith(\"#gui#warning\"):\n                avisos += 1\n",
+  "modulos": [
+   "test_mux_endpoints"
+  ]
+ },
+ {
+  "id": "T9E-9 CMv4.0 vuelve a tirar toda línea #GUI# que no sea de progreso",
+  "fichero": "app/phases/cmv40_pipeline.py",
+  "viejo": "        text = salida_mkvmerge.traducir(text)\n        if text is None:\n            return\n",
+  "nuevo": "        if text.startswith(\"#GUI#progress \"):\n            text = \"Progress: \" + text.removeprefix(\"#GUI#progress \")\n        elif text.startswith(\"#GUI#\"):\n            return\n",
+  "modulos": [
+   "test_salida_mkvmerge"
+  ]
+ },
+ {
+  "id": "T9E-10 el mkvmerge falso vuelve a escribir Error: en modo GUI",
+  "fichero": "app/tests/cmv40_harness.py",
+  "viejo": "    prefijo = \"#GUI#error \" if \"--gui-mode\" in ARGV else \"Error: \"\n",
+  "nuevo": "    prefijo = \"Error: \"\n",
+  "modulos": [
+   "test_salida_mkvmerge"
+  ]
  }
 ]

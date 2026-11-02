@@ -55,6 +55,11 @@ ASSERTION = ("mkvmerge: ../../src/merge/generic_packetizer.cpp:123: "
 # avisos que no significaban nada.
 SENAL_DE_CRASH = signal.SIGTERM
 
+# Un error de mkvmerge con la forma de los que da al empalmar los m2ts de un
+# playlist. Lo escribe por stdout, y con `--gui-mode` como `#GUI#error …`.
+ERROR_DE_EMPALME = ("The track number 2 from the file '00428.m2ts' cannot be "
+                    "appended to the track number 2 from the file '00294.m2ts'.")
+
 
 def _audio(language, codec, label, *, flag_default=False, position=0, ch=0):
     return IncludedAudioTrack(
@@ -237,6 +242,28 @@ class TestFaseD(FaseTestCase):
         [mux] = [c for c in self.tb.find("mkvmerge") if c.has("--gui-mode")]
         self.assertEqual(self.log.comandos("mkvmerge"), [mux.argv],
                          "el log tiene que decir el comando que se ejecutó, citado")
+
+    async def test_el_error_de_mkvmerge_llega_al_log_y_al_mensaje(self):
+        """HOBBS & SHAW. Con `--gui-mode` mkvmerge escribe sus errores como
+        `#GUI#error …`, y la fase tiraba toda línea `#GUI#` que no fuera de
+        progreso: el rip acababa en «código 2» sin el motivo en ninguna
+        parte. Tiene que salir en el log como lo escribiría mkvmerge sin el
+        modo GUI, y en el mensaje, que es lo que ve el aviso del proyecto."""
+        self.tb.fail_when_arg("mkvmerge", "--gui-mode", rc=2, stderr="",
+                              error_mkvmerge=ERROR_DE_EMPALME)
+        with self.assertRaises(RuntimeError) as ctx:
+            await self._correr()
+        self.assertIn("Error: " + ERROR_DE_EMPALME, self.log.lines)
+        self.assertIn(ERROR_DE_EMPALME, str(ctx.exception))
+        self.assertIn("código 2", str(ctx.exception))
+
+    async def test_los_avisos_de_mkvmerge_llegan_al_log(self):
+        """Los avisos van por el mismo camino (`#GUI#warning …`) y tampoco se
+        veían nunca: un mkvmerge que salía con 1 no decía por qué."""
+        self.tb.avisos_de_mkvmerge("'00800.mpls': A track was skipped.")
+        salida = await self._correr()
+        self.assertTrue(Path(salida).exists(), "con avisos el intermedio vale")
+        self.assertIn("Warning: '00800.mpls': A track was skipped.", self.log.lines)
         self.assertTrue(self.log.says("📋"), "falta el plan de la fase")
         self.assertTrue(self.log.says("🎯"), "falta el resultado de la fase")
 
@@ -416,6 +443,24 @@ class TestFaseEDirecta(FaseTestCase):
         await self._correr()
         self.assertIn("Progress: 100%",
                       [l for l in self.log.lines if l.startswith("Progress: ")])
+
+    async def test_el_error_de_mkvmerge_llega_al_log_y_al_mensaje(self):
+        """HOBBS & SHAW: es la ruta que falló, la directa, con un playlist de
+        dos m2ts. El motivo tiene que llegar al log y al mensaje."""
+        self.tb.fail_when_arg("mkvmerge", "--gui-mode", rc=2, stderr="",
+                              error_mkvmerge=ERROR_DE_EMPALME)
+        with self.assertRaises(RuntimeError) as ctx:
+            await self._correr()
+        self.assertIn("Error: " + ERROR_DE_EMPALME, self.log.lines)
+        self.assertIn(ERROR_DE_EMPALME, str(ctx.exception))
+        self.assertEqual(list(self.salida.iterdir()), [],
+                         "un mux fallido no deja nada en /mnt/output")
+
+    async def test_los_avisos_de_mkvmerge_llegan_al_log(self):
+        self.tb.avisos_de_mkvmerge("'00800.mpls': A track was skipped.")
+        salida = await self._correr()
+        self.assertTrue(Path(salida).exists(), "con avisos el MKV vale")
+        self.assertIn("Warning: '00800.mpls': A track was skipped.", self.log.lines)
 
 
 class TestFaseEDirectaPorContenido(FaseTestCase):

@@ -479,10 +479,17 @@ class FakeToolbox:
             "tras_producir": tras_producir}
         self._flush()
 
+    def avisos_de_mkvmerge(self, *mensajes: str) -> None:
+        """Avisos que escribirá el mux de mkvmerge, que entonces sale con 1
+        como el real. Van con `#GUI#warning` si se le pasa `--gui-mode`."""
+        self._scenario["mkvmerge_avisos"] = list(mensajes)
+        self._flush()
+
     def fail_when_arg(self, binary: str, subcadena: str, rc: int = 1,
                       stderr: str = "fallo simulado",
                       senal: int | None = None,
-                      tras_producir: bool = False) -> None:
+                      tras_producir: bool = False,
+                      error_mkvmerge: str | None = None) -> None:
         """Falla solo las invocaciones cuyo argv contenga `subcadena`.
 
         Modela un fallo que depende del FICHERO de entrada, no del comando. El
@@ -492,11 +499,15 @@ class FakeToolbox:
         permanente no se puede distinguir el primer intento del segundo, y sin
         distinguirlos no se puede comprobar que el reintento ocurre —ni que
         ocurre UNA sola vez.
+
+        `error_mkvmerge` es el mensaje de un error de mkvmerge (sin prefijo):
+        sale por stdout como lo escribe el real, `#GUI#error …` con
+        `--gui-mode` y `Error: …` sin él.
         """
         self._scenario.setdefault("fail_arg", []).append({
             "binary": binary, "subcadena": subcadena,
             "rc": rc, "stderr": stderr, "senal": senal,
-            "tras_producir": tras_producir})
+            "tras_producir": tras_producir, "error_mkvmerge": error_mkvmerge})
         self._flush()
 
     def retrasar_cuando_arg(self, binary: str, subcadena: str, segundos: float, *,
@@ -1125,6 +1136,9 @@ def main():
         # su JSON parecería no haber dicho nada.
         sys.stdout.flush()
 
+    if forced and forced.get("error_mkvmerge") and BINARY == "mkvmerge":
+        _error_de_mkvmerge(forced["error_mkvmerge"])
+        sys.stdout.flush()
     if forced:
         sys.stderr.write(forced.get("stderr", "fallo simulado"))
         sys.stderr.flush()
@@ -2459,6 +2473,23 @@ def _capitulos_del_j(ruta, name, del_fichero, sc):
     return [{"num_entries": len(caps)}] if caps else []
 
 
+def _error_de_mkvmerge(mensaje):
+    """Un error como lo escribe el mkvmerge real: por STDOUT, y con
+    `--gui-mode` marcado `#GUI#error` en vez de `Error:` (comprobado con la
+    v102). El fake lo escribía `Error: …` por stderr también en modo GUI, y
+    por eso ningún test veía que los cuatro lectores del pipeline tiraban
+    toda línea `#GUI#` que no fuera de progreso: el motivo de un fallo de
+    mkvmerge no llegaba nunca al log (Hobbs & Shaw, octubre de 2026)."""
+    prefijo = "#GUI#error " if "--gui-mode" in ARGV else "Error: "
+    sys.stdout.write(prefijo + mensaje + "\n")
+
+
+def _aviso_de_mkvmerge(mensaje):
+    """Un aviso, con la misma regla: `#GUI#warning` en modo GUI."""
+    prefijo = "#GUI#warning " if "--gui-mode" in ARGV else "Warning: "
+    sys.stdout.write(prefijo + mensaje + "\n")
+
+
 def mkvmerge(sc):
     # `-J` y `--identify --identification-format json` son EQUIVALENTES en
     # mkvmerge, y el pipeline usa las dos: Tab 2 y la Fase A van con `-J`, la
@@ -2607,15 +2638,15 @@ def mkvmerge(sc):
         entradas = _entradas_del_mux()
         faltan = [r for r, _ in entradas if not Path(r).exists()]
         if faltan:
-            sys.stderr.write("Error: The file '%s' could not be opened for "
-                             "reading: open file error.\n" % faltan[0])
+            _error_de_mkvmerge("The file '%s' could not be opened for "
+                               "reading: open file error." % faltan[0])
             return 2
         pistas, ruta_video = _pistas_del_mux(entradas, sc)
         props = read_props(ruta_video, sc) if ruta_video else dict(DEFAULT_PROPS)
         props["tracks"] = pistas
         caps = _capitulos_del_mux(entradas, sc)
         if caps is False:
-            sys.stderr.write("Error: The chapter file could not be parsed.\n")
+            _error_de_mkvmerge("The chapter file could not be parsed.")
             return 2
         props.pop("chapters", None)
         if caps is not None:
@@ -2629,10 +2660,14 @@ def mkvmerge(sc):
     # cola) y descartan el resto de líneas `#GUI#`; con una sola línea al 100 %
     # ninguna de las dos cosas se ejercitaba.
     sys.stdout.write("#GUI#begin_scanning_playlists\n")
+    avisos = sc.get("mkvmerge_avisos") or []
+    for mensaje in avisos:
+        _aviso_de_mkvmerge(mensaje)
     for pct in (0, 25, 50, 75, 100):
         sys.stdout.write("#GUI#progress %d%%\n" % pct)
     sys.stdout.write("#GUI#end_scanning_playlists\n")
-    return 0
+    # Con avisos el real sale con 1: «terminó, pero hay algo que mirar».
+    return 1 if avisos else 0
 
 
 sys.exit(main())

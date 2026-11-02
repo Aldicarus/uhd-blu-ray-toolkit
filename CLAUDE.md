@@ -143,6 +143,7 @@ ISO2MKVFEL/
     │   ├── phase_b.py         ← Motor de reglas automáticas (audio, subs, capítulos, nombre)
     │   ├── phase_d.py         ← Extracción: mkvmerge desde MPLS montado
     │   ├── phase_e.py         ← Escritura final: flags, metadatos, validación
+    │   ├── salida_mkvmerge.py ← La salida de `mkvmerge --gui-mode`: progreso, errores y avisos (ver «Pipeline optimizado»)
     │   ├── mkv_analyze.py     ← Tab 2: análisis + edición de MKVs (mkvmerge + MediaInfo + light-profile DV L1)
     │   ├── mkv_reubicar.py    ← Tab 2: encontrar por contenido el MKV analizado que cambió de carpeta
     │   ├── rpu_analyze.py     ← Clasificación L8 (classify_l8 + tiers) para el modelo Mantener/Inyectar (pre-flight)
@@ -4059,6 +4060,32 @@ El pipeline de ejecución (Fase D + Fase E en [phases/phase_d.py](app/phases/pha
 
 **Otros:**
 - **`--gui-mode`** en mkvmerge: fuerza output de progreso (`#GUI#progress XX%` → traducido a `Progress: XX%`).
+- **Y con `--gui-mode` mkvmerge escribe también sus ERRORES y AVISOS marcados**:
+  `#GUI#error …` y `#GUI#warning …`, por stdout, en vez de `Error:` y
+  `Warning:` (comprobado con la v102). Los cuatro lectores —las fases D y E,
+  el `_run_streaming` de CMv4.0 y la Fase B de Multiplexar— tiraban toda línea
+  `#GUI#` que no fuera de progreso, así que **ningún error de mkvmerge llegaba
+  nunca al log**: el rip acababa en «código 2» sin el motivo, y el aviso de
+  Multiplexar decía «El log tiene el detalle» con un log que no lo tenía. Lo
+  destapó un tester con Hobbs & Shaw (octubre de 2026): un playlist de dos
+  m2ts que fallaba en el mismo segundo, después de preparar las pistas de los
+  dos y antes de abrir la salida, sin una línea que dijera por qué.
+  - **`phases/salida_mkvmerge.py` es el único que decide** qué hacer con una
+    línea `#GUI#` (`traducir`: progreso, `Error:`, `Warning:` o nada) y saca
+    el texto del error (`error_de`). Tab 1 y Multiplexar lo ponen además en el
+    mensaje de la excepción (`phase_d.error_de_mkvmerge`,
+    `mux.mkvmerge_fallo_con_error`), que es lo que llega al aviso del proyecto
+    y al historial; CMv4.0 lo deja en el log, porque su `_run_streaming`
+    devuelve solo el código. `test_salida_mkvmerge::TestNadieFiltraLasLineasDeControlPorSuCuenta`
+    falla con un literal `#GUI#` fuera de ese módulo (salvo leer el
+    porcentaje de `#GUI#progress`).
+  - **Ningún test lo veía porque el mkvmerge falso escribía `Error: …` por
+    stderr también en modo GUI.** Hoy `_error_de_mkvmerge` y
+    `_aviso_de_mkvmerge` escriben por stdout con el prefijo que toca según
+    `--gui-mode`, `fail_when_arg(..., error_mkvmerge=…)` provoca un error con
+    esa forma y `avisos_de_mkvmerge(...)` hace que el mux avise y salga con 1.
+    De paso salió que el contador de avisos de Multiplexar no contaba nunca
+    nada: buscaba líneas que empezaran por «warning».
 - **Cancelación**: `_cancel_flags` + `_active_processes` permiten matar el subprocess activo. Limpieza de temporales y cierre del origen en finally (via `Source.__aexit__`).
 - **Validación final**: tras crear el MKV, `mkvmerge -J` + `mkvextract` verifican pistas, idiomas, flags y capítulos contra lo esperado. **No comprueba duración** — por eso el fallback al M2TS (abajo) la valida él mismo.
 
@@ -4316,7 +4343,7 @@ versión) y las 46 comprobaciones de su Fase C en verde.
 ### La auditoría de la suite del 2026-10-17: lo que cambió en cómo se prueba
 
 Con **38 mutaciones** propuestas por Codex aplicadas A LA VEZ, los 3.117 tests
-de entonces seguían en verde. Hoy hay **732 mutaciones** en
+de entonces seguían en verde. Hoy hay **742 mutaciones** en
 `app/tools/mutaciones.json` —las 42 de la auditoría que siguen aplicando, más
 una por cada arreglo que salió de ella, las de la pestaña Multiplexar, las
 `T5R-*` de la pasada de registro a toda la app, las `T2R-*`/`T2F-*`/`T4A-*`
@@ -4324,7 +4351,8 @@ de la reubicación de los MKV movidos y del análisis del MKV multiplexado,
 las `T5X-*` de la revisión de Codex previa a la v3.5.0, las `T7*` de lo
 que enseñaron las capturas de la portada (los comandos citados del log, los
 números en su idioma, textos y dos piezas de la interfaz), las `T6V-*` de la
-regresión real y de la base 24.04 y las `T8D-*` del alemán— y
+regresión real y de la base 24.04, las `T8D-*` del alemán y las `T9E-*`
+de los errores de mkvmerge que no se veían— y
 `app/tools/mutar.py` las caza todas. Lo que se aprendió, por orden de cuántas veces se repitió:
 
 - **Se probaba que algo PASA, no la frontera en que deja de pasar.** Umbrales

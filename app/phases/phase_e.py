@@ -48,8 +48,10 @@ from pathlib import Path
 from models import Chapter, Session
 from phases.phase_a import (ISO639_TO_ENGLISH, _find_subordinate_track_ids,
                             esperar_con_tope)
+from phases import salida_mkvmerge
 from phases.phase_d import (
-    MkvmergePlaylistError, _limpiar_parcial, is_playlist_assertion_line,
+    MkvmergePlaylistError, _limpiar_parcial, error_de_mkvmerge,
+    is_playlist_assertion_line,
 )
 
 MKVMERGE_BIN    = "mkvmerge"
@@ -247,6 +249,7 @@ async def run_phase_e_direct(
     last_line_at = time.monotonic()
     hung = False
     playlist_assert = False
+    errores: list[str] = []
 
     async def _watchdog():
         nonlocal hung
@@ -272,10 +275,10 @@ async def run_phase_e_direct(
             # el orquestador reintente con el M2TS principal directo.
             if is_playlist_assertion_line(text):
                 playlist_assert = True
-            # --gui-mode: "#GUI#progress 45%" → "Progress: 45%"
-            if text.startswith("#GUI#progress "):
-                text = "Progress: " + text.removeprefix("#GUI#progress ")
-            elif text.startswith("#GUI#"):
+            if (error := salida_mkvmerge.error_de(text)):
+                errores.append(error)
+            text = salida_mkvmerge.traducir(text)
+            if text is None:
                 continue
             if log_callback:
                 await log_callback(text)
@@ -312,7 +315,7 @@ async def run_phase_e_direct(
     # capturaba, el flujo seguía hasta el stat() del output inexistente y
     # reventaba con un críptico "[Errno 2] No such file or directory".
     if proc.returncode not in (0, 1):
-        raise RuntimeError(tr('phase_d.mkvmerge_termino_de_forma_anomala_codigo', returncode=proc.returncode))
+        raise RuntimeError(error_de_mkvmerge(proc.returncode, errores))
 
     if not Path(work_path).exists():
         raise RuntimeError(tr('phase_e.mkvmerge_no_genero_el_mkv_final', output_path=output_path))

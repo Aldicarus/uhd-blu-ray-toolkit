@@ -33,6 +33,7 @@ import firma
 from models import CMv40Phase, CMv40PhaseRecord, CMv40Session, DoviInfo
 from phases.cmv40_strategy import (WORKFLOWS, gates_dan_confianza, niveles_del_merge,
                                    resolve_plan)
+from phases import salida_mkvmerge
 from phases.phase_a import _parse_dovi_summary
 
 _logger = logging.getLogger(__name__)
@@ -877,7 +878,9 @@ async def _run_streaming_sin_red(
     """Ejecuta un comando con streaming de stdout+stderr al log_callback.
 
     Divide por ``\\n`` y ``\\r`` (ffmpeg usa ``\\r`` en sus líneas de progreso).
-    Traduce ``#GUI#progress XX%`` de mkvmerge → ``Progress: XX%``.
+    Traduce la salida de ``mkvmerge --gui-mode`` con ``salida_mkvmerge``:
+    ``#GUI#progress XX%`` → ``Progress: XX%``, y sus errores y avisos a
+    ``Error:`` / ``Warning:`` en vez de tirarlos.
     Throttle de 500 ms para ffmpeg para no saturar el log.
 
     Si se pasa ``progress_ctx``, emite eventos ``§§PROGRESS§§`` con pct y ETA:
@@ -941,9 +944,8 @@ async def _run_streaming_sin_red(
         nonlocal suppressed_dts_warnings
         if not text:
             return
-        if text.startswith("#GUI#progress "):
-            text = "Progress: " + text.removeprefix("#GUI#progress ")
-        elif text.startswith("#GUI#"):
+        text = salida_mkvmerge.traducir(text)
+        if text is None:
             return
 
         # Filtro: warning DTS no monotonico de ffmpeg. Cosmetic — el

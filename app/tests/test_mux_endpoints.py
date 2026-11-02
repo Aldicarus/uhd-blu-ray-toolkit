@@ -752,6 +752,37 @@ class TestMultiplexar(MuxCase):
         log.lines = list(q.historial[-1].output_log)
         self.assertEqual(log.comandos("mkvmerge"), [self.el_mux().argv])
 
+    def test_el_error_de_mkvmerge_llega_al_aviso_y_al_log(self):
+        """Con `--gui-mode` mkvmerge escribe sus errores como `#GUI#error …` y
+        la Fase B los tiraba: el proyecto decía «El log tiene el detalle» con
+        un log que no lo tenía (Hobbs & Shaw, en Tab 1, octubre de 2026)."""
+        error = "The file 'B.mkv' could not be opened for reading: open file error."
+        p = self.crear()
+        self.elegir(p["id"], A_VIDEO, B_DCP, B_INGLES, capitulos=[(1, 0)])
+        self.con_medida(p["id"])
+        self.tb.fail_when_arg("mkvmerge", "--gui-mode", rc=2, stderr="",
+                              error_mkvmerge=error)
+        q = self.multiplexar(p["id"])
+        self.assertEqual(q.status, "error")
+        self.assertIn(error, q.error_message or "")
+        log = q.historial[-1].output_log
+        self.assertTrue(any(l.endswith("] Error: " + error) for l in log), log)
+
+    def test_los_avisos_de_mkvmerge_se_ven_y_se_cuentan(self):
+        """El contador de avisos buscaba líneas que empezaran por «warning»,
+        y en modo GUI empiezan por `#GUI#warning`: no contaba nunca nada."""
+        p = self.crear()
+        self.elegir(p["id"], A_VIDEO, B_DCP, B_INGLES, capitulos=[(1, 0)])
+        self.con_medida(p["id"])
+        self.tb.avisos_de_mkvmerge("'A.mkv': A track was skipped.")
+        q = self.multiplexar(p["id"])
+        self.assertEqual(q.status, "done", (q.error_message, q.validacion))
+        log = q.historial[-1].output_log
+        self.assertTrue(any(l.endswith("] Warning: 'A.mkv': A track was skipped.")
+                            for l in log), log)
+        from i18n import t
+        self.assertTrue(any(t('mux.log_mkvmerge_con_avisos_uno', n=1) in l for l in log), log)
+
     def test_la_marca_no_se_anuncia_en_el_log(self):
         """La regla de `firma.py`, que Tab 1 ya vigilaba en su log: una marca
         discreta que se anuncia deja de serlo. El de Tab 4 terminaba en

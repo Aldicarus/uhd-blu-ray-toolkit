@@ -36,7 +36,7 @@ import firma
 from i18n import t as tr
 from models import (ESQUEMA_MUX, MuxAdjunto, MuxCapituloOrigen, MuxFuente,
                     MuxPistaOrigen, MuxProject, MuxPunto, MuxSincronia, MuxVideo)
-from phases import mux_plan, mux_sync
+from phases import mux_plan, mux_sync, salida_mkvmerge
 
 _logger = logging.getLogger(__name__)
 
@@ -572,6 +572,7 @@ async def fase_b_multiplexar(proyecto: MuxProject, plan_: dict, log, *,
 
     vigilante = asyncio.create_task(_vigilante())
     avisos = 0
+    errores: list[str] = []
     try:
         async for bruto in proc.stdout:
             ultima = time.monotonic()
@@ -587,9 +588,12 @@ async def fase_b_multiplexar(proyecto: MuxProject, plan_: dict, log, *,
                     al_progreso(pct)
                 await _log(log, f"Progress: {int(pct)}%")
                 continue
-            if linea.startswith("#GUI#"):
+            if (error := salida_mkvmerge.error_de(linea)):
+                errores.append(error)
+            linea = salida_mkvmerge.traducir(linea)
+            if linea is None:
                 continue
-            if linea.lower().startswith("warning"):
+            if linea.startswith("Warning: "):
                 avisos += 1
             await _log(log, linea)
         await proc.wait()
@@ -617,6 +621,9 @@ async def fase_b_multiplexar(proyecto: MuxProject, plan_: dict, log, *,
         if colgado:
             raise RuntimeError(tr('mux.mkvmerge_colgado',
                                   minutos=MKVMERGE_INACTIVIDAD_S // 60))
+        if errores:
+            raise RuntimeError(tr('mux.mkvmerge_fallo_con_error', rc=proc.returncode,
+                                  error=errores[-1]))
         raise RuntimeError(tr('mux.mkvmerge_fallo', rc=proc.returncode))
     if not trabajo.exists():
         raise RuntimeError(tr('mux.mkvmerge_sin_salida'))
