@@ -671,8 +671,8 @@
  {
   "id": "T1-m5 un ISO sin BDMV no se desmonta",
   "fichero": "app/phases/iso_mount.py",
-  "viejo": "    if not bdmv.exists():\n        await unmount_iso(str(mount_point))\n",
-  "nuevo": "    if not bdmv.exists():\n",
+  "viejo": "    if not hay_bdmv:\n        await unmount_iso(str(mount_point))\n",
+  "nuevo": "    if not hay_bdmv:\n",
   "modulos": [
    "test_montaje_del_iso"
   ]
