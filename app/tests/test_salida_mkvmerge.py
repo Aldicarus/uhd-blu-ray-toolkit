@@ -98,6 +98,36 @@ class TestElRunnerDeCMv40(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([l for l in log.lines if l.startswith("#GUI#")], [])
 
 
+class TestElMkvmergeFalsoEscribeComoElReal(unittest.TestCase):
+    """Comprobado con la v102: el error va por STDOUT, con `#GUI#error` en
+    modo GUI y `Error:` sin él. Con el fake escribiendo `Error:` también en
+    modo GUI, ningún test veía que los lectores tiraban el error."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="salida_mkvmerge_"))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self.tb = FakeToolbox(self.tmp)
+        self.tb.install()
+        self.addCleanup(self.tb.uninstall)
+
+    def _correr(self, *args):
+        import os
+        import subprocess
+        return subprocess.run(["mkvmerge", *args], capture_output=True, text=True,
+                              env={**os.environ, "PATH": f"{self.tb.bin_dir}{os.pathsep}"
+                                   f"{os.environ.get('PATH', '')}"})
+
+    def test_un_fichero_que_no_existe(self):
+        falta = str(self.tmp / "no_existe.m2ts")
+        out = str(self.tmp / "out.mkv")
+        con = self._correr("--gui-mode", "-o", out, falta)
+        sin = self._correr("-o", out, falta)
+        self.assertEqual((con.returncode, sin.returncode), (2, 2))
+        self.assertIn(f"#GUI#error The file '{falta}' could not be opened", con.stdout)
+        self.assertIn(f"Error: The file '{falta}' could not be opened", sin.stdout)
+        self.assertNotIn("Error:", con.stdout)
+
+
 class TestNadieFiltraLasLineasDeControlPorSuCuenta(unittest.TestCase):
     """Los cuatro lectores tenían cada uno su `elif text.startswith("#GUI#"):
     continue`, y los cuatro se tragaban el error. Un quinto escrito igual

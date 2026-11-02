@@ -170,6 +170,27 @@ _CUERPO = """
     out.flujo_seguir = await flujo('titulo-dudoso-seguir');
     out.flujo_otra = await flujo('titulo-dudoso-seguir', {otra: true});
     out.flujo_otra_falla = await flujo('titulo-dudoso-seguir', {otra: true, versionFalla: true});
+
+    // ── «Cambiar de versión» desde el panel, de punta a punta: el botón
+    // abre el diálogo, se elige la otra y sale el POST.
+    {
+      const llamadas = [];
+      window.apiFetch = async (url, opts) => {
+        llamadas.push([(opts && opts.method) || 'GET', url, (opts && opts.body) || '']);
+        if (url.endsWith('/version')) return JSON.parse(JSON.stringify(SES));
+        if (url === '/api/sessions') return {sessions: []};
+        return {};
+      };
+      const en_curso = cambiarDeVersion('otra');
+      for (let i = 0; i < 60 && !modal.classList.contains('open'); i++)
+        await new Promise(r => setTimeout(r, 100));
+      out.panel_abierto = modal.classList.contains('open');
+      out.panel_abandonar = document.getElementById('titulo-dudoso-abandonar').style.display;
+      modal.querySelector('.titulo-version[data-mpls="00801.mpls"]').click();
+      document.getElementById('titulo-dudoso-seguir').click();
+      await en_curso;
+      out.panel_llamadas = llamadas;
+    }
   } catch (e) { out.error = String(e && e.stack || e); }
   document.getElementById('__out').textContent = JSON.stringify(out);
 })();
@@ -315,6 +336,14 @@ class TestElTituloDudoso(unittest.TestCase):
         self.assertIn(["POST", "/api/sessions/s2/version", '{"mpls":"00801.mpls"}'],
                       f["llamadas"])
         self.assertNotIn("DELETE", [metodo for metodo, *_ in f["llamadas"]])
+
+    def test_el_boton_del_panel_cambia_la_version(self):
+        m = self.m["es"]
+        self.assertTrue(m["panel_abierto"])
+        self.assertEqual(m["panel_abandonar"], "none")
+        self.assertIn(["POST", "/api/sessions/s2/version", '{"mpls":"00801.mpls"}'],
+                      m["panel_llamadas"])
+        self.assertNotIn("DELETE", [metodo for metodo, *_ in m["panel_llamadas"]])
 
     def test_si_el_cambio_falla_no_se_borra_el_proyecto(self):
         """Un 400/409 o un fallo de red al cambiar de versión no es

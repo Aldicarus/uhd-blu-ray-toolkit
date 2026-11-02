@@ -402,6 +402,26 @@ class TestDosVersionesDelMismoDisco(OrquestadorCase):
                          "ha extraído el m2ts con otra versión dentro")
         self.assertEqual(list(self.salida.rglob("*.mkv")), [])
 
+    async def test_un_solo_clip_recortado_tampoco_es_la_version(self):
+        """Un PlayItem que empieza en el minuto 1 del M2TS: es un solo clip,
+        cabe en el 2 % y el M2TS entero añadiría ese minuto."""
+        from test_seleccion_mpls_principal import _mpls
+        self.mpls.write_bytes(_mpls([("00044", 60, 7200)]))
+        self.tb.define_mkv(self.mpls.name, tracks=[VIDEO, AUDIO_ES, AUDIO_EN],
+                           duration_s=7140.0)
+        self.tb.fail_when_arg("mkvmerge", "00800_intermediate", stderr=ASSERTION + "\n")
+        s = await self._correr(self._sesion(bdinfo_result=self._bd()))
+        self.assertEqual(s.status, "error")
+        self.assertFalse([c for c in self.muxes if any(".m2ts" in a for a in c.argv)])
+
+    async def test_dos_tramos_del_mismo_clip_tampoco(self):
+        from test_seleccion_mpls_principal import _mpls
+        self.mpls.write_bytes(_mpls([("00044", 0, 3600), ("00044", 3700, 7200)]))
+        self.tb.fail_when_arg("mkvmerge", "00800_intermediate", stderr=ASSERTION + "\n")
+        s = await self._correr(self._sesion(bdinfo_result=self._bd()))
+        self.assertEqual(s.status, "error")
+        self.assertFalse([c for c in self.muxes if any(".m2ts" in a for a in c.argv)])
+
     async def test_con_un_solo_segmento_el_reintento_sigue(self):
         """Si el playlist solo reproduce el M2TS principal, ese M2TS ES la
         versión elegida: el reintento sigue como siempre."""

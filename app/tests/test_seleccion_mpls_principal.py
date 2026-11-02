@@ -814,6 +814,7 @@ class TestRestaurarCapitulosLeeElMplsDeLaSesion(ApiTestCase):
 
 PISTAS_EXTENDIDA = PISTAS_PELICULA + [
     {"type": "audio", "codec": "DTS-HD Master Audio", "language": "fre", "channels": 8},
+    {"type": "subtitles", "codec": "HDMV PGS", "language": "fre"},
 ]
 
 
@@ -859,13 +860,29 @@ class TestCambiarDeVersion(ApiTestCase):
         import storage
         return storage.load_session(sid)
 
-    def _hecho(self, mpls=""):
+    def _hecho(self, mpls="", nombre="Montajes (2021).mkv", run=1, crear=True):
         from datetime import datetime, timezone
         from models import ExecutionRecord
-        final = self.output_dir / "Montajes (2021).mkv"
-        final.write_bytes(b"el rip de antes")
-        return ExecutionRecord(run_number=1, started_at=datetime.now(timezone.utc),
+        final = self.output_dir / nombre
+        if crear:
+            final.write_bytes(b"el rip de antes")
+        return ExecutionRecord(run_number=run, started_at=datetime.now(timezone.utc),
                                status="done", output_mkv_path=str(final), mpls=mpls)
+
+    def _en_la_01(self, **campos):
+        """La sesión DESPUÉS de cambiar a la extendida (00801)."""
+        from models import BDInfoResult
+        return self._sesion(bdinfo_result=BDInfoResult(
+            video_tracks=[], audio_tracks=[], subtitle_tracks=[],
+            duration_seconds=154 * 60, has_fel=False, vo_language="English",
+            main_mpls="00801.mpls",
+            avisos_titulo=[{"tipo": "varias_versiones", "mpls": "00801.mpls",
+                            "segundos": 154 * 60,
+                            "otras": [{"mpls": "00800.mpls", "segundos": 137 * 60}],
+                            "mas": 0}]), **campos)
+
+    def _ejecutar(self, sid):
+        return self.client.post(f"/api/sessions/{sid}/execute")
 
     def test_cambia_a_la_version_elegida_en_el_mismo_proyecto(self):
         sid = self._sesion(tmdb_info={"title": "Fast & Furious 9", "year": 2021})
@@ -896,13 +913,77 @@ class TestCambiarDeVersion(ApiTestCase):
     def test_respeta_mantener_todas(self):
         """Las pistas se rehacen con los modos de la sesión, como
         `reapply-rules`: el análisis las aplica con los de por defecto."""
-        sid = self._sesion(audio_mode="keep_all")
+        from models import IncludedAudioTrack, IncludedSubtitleTrack
+        for modo, clase, total in (("audio_mode", IncludedAudioTrack, 3),
+                                   ("subtitle_mode", IncludedSubtitleTrack, 3)):
+            with self.subTest(modo):
+                sid = self._sesion(sid=f"S_{modo}", **{modo: "keep_all"})
+                self.assertEqual(self._cambiar(sid).status_code, 200)
+                s = self._cargar(sid)
+                pistas = [t for t in s.included_tracks if isinstance(t, clase)]
+                self.assertEqual(len(pistas), total, [t.label for t in pistas])
+                self.assertEqual(getattr(s, modo), "keep_all")
+
+    def test_los_capitulos_son_los_de_la_version_nueva(self):
+        """Un montaje extendido desplaza los capítulos: quedarse con los de
+        antes los pondría donde no van."""
+        from models import Chapter
+        viejo = [Chapter(number=1, timestamp="00:00:00.000", name="El de antes")]
+        sid = self._sesion(chapters=viejo)
         self.assertEqual(self._cambiar(sid).status_code, 200)
-        from models import IncludedAudioTrack
-        audios = [t for t in self._cargar(sid).included_tracks
-                  if isinstance(t, IncludedAudioTrack)]
-        self.assertEqual(len(audios), 3, [t.label for t in audios])
-        self.assertEqual(self._cargar(sid).audio_mode, "keep_all")
+        s = self._cargar(sid)
+        self.assertNotEqual([c.name for c in s.chapters], ["El de antes"])
+        self.assertTrue(s.chapters)
+
+    def test_mientras_analiza_el_proyecto_queda_reservado(self):
+        """Es lo que mira `/execute`: un test que mete el id a mano en la
+        reserva no demuestra que el cambio la tome."""
+        from unittest import mock
+        from routers import tab1
+        original = tab1._analizar_el_origen
+        sid = self._sesion()
+        visto = []
+
+        async def _mirar(*a, **kw):
+            visto.append(sid in tab1._cambiando_version)
+            return await original(*a, **kw)
+
+        with mock.patch.object(tab1, "_analizar_el_origen", _mirar):
+            self.assertEqual(self._cambiar(sid).status_code, 200)
+        self.assertEqual(visto, [True])
+        self.assertNotIn(sid, tab1._cambiando_version, "la reserva se suelta al terminar")
+
+    def test_un_proyecto_borrado_mientras_analiza_no_se_recrea(self):
+        from unittest import mock
+        import storage
+        from routers import tab1
+        original = tab1._analizar_el_origen
+        sid = self._sesion()
+
+        async def _y_lo_borran(*a, **kw):
+            r = await original(*a, **kw)
+            storage.delete_session(sid)
+            return r
+
+        with mock.patch.object(tab1, "_analizar_el_origen", _y_lo_borran):
+            self.assertEqual(self._cambiar(sid).status_code, 404)
+        self.assertIsNone(storage.load_session(sid))
+
+    def test_una_version_ya_anotada_no_se_reetiqueta(self):
+        """Ir a 00801 y volver a 00800 sin ripear: el rip de 00800 sigue
+        siendo de 00800, y re-ejecutarlo es re-ripear la misma versión."""
+        sid = self._en_la_01(execution_history=[self._hecho("00800.mpls")])
+        self.assertEqual(self._cambiar(sid, "00800.mpls").status_code, 200)
+        self.assertEqual([r.mpls for r in self._cargar(sid).execution_history],
+                         ["00800.mpls"])
+        self.assertEqual(self._ejecutar(sid).status_code, 200)
+
+    def test_desde_un_iso(self):
+        """Un ISO también es un disco: lo que falla aquí es que no está."""
+        sid = self._sesion(source_type="iso", iso_path=str(self.isos_dir / "No esta.iso"))
+        r = self._cambiar(sid)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn(tr('tab1.version_sin_origen', origen=""), r.json()["detail"])
 
     def test_el_nombre_lleva_el_ano_de_la_ficha_que_ya_tiene(self):
         """Sin año en el nombre del origen, el de la ficha del proyecto, sin
@@ -1007,6 +1088,51 @@ class TestCambiarDeVersion(ApiTestCase):
         self.assertEqual(r.status_code, 409, r.text)
         self.assertIn("00800.mpls", r.json()["detail"])
         self.assertEqual(self.encolados, [])
+
+    def test_manda_la_ultima_ejecucion_que_escribio_el_destino(self):
+        """00800, luego 00801 sobre el mismo nombre: el MKV de ahora es el de
+        00801, y volver a 00800 lo sustituiría."""
+        sid = self._sesion(execution_history=[self._hecho("00800.mpls", run=1),
+                                              self._hecho("00801.mpls", run=2)])
+        r = self._ejecutar(sid)
+        self.assertEqual(r.status_code, 409, r.text)
+        self.assertIn("00801.mpls", r.json()["detail"])
+
+    def test_solo_cuenta_la_ejecucion_que_escribio_ESE_fichero(self):
+        """00800 en «Cine.mkv», 00801 en «Extendida.mkv»; con 00801 elegida y
+        el nombre cambiado a «Cine.mkv», lo que hay ahí es de 00800."""
+        sid = self._en_la_01(mkv_name="Cine.mkv", execution_history=[
+            self._hecho("00800.mpls", nombre="Cine.mkv", run=1),
+            self._hecho("00801.mpls", nombre="Extendida.mkv", run=2)])
+        r = self._ejecutar(sid)
+        self.assertEqual(r.status_code, 409, r.text)
+        self.assertIn("00800.mpls", r.json()["detail"])
+
+    def test_sin_el_fichero_no_hay_nada_que_proteger(self):
+        sid = self._en_la_01(execution_history=[self._hecho("00800.mpls", crear=False)])
+        self.assertEqual(self._ejecutar(sid).status_code, 200)
+
+    def test_un_cambio_que_termina_durante_execute_no_se_deshace(self):
+        """`/execute` guardaba la copia de la sesión que leyó al empezar: si
+        un cambio de versión terminaba durante sus `await`, lo deshacía y
+        encolaba la versión vieja (revisión de Codex de la implementación)."""
+        from unittest import mock
+        import storage
+        from routers import tab1
+        sid = self._sesion()
+        original = tab1._otro_proyecto_con_el_mismo_destino
+
+        def _y_entretanto_cambia(session):
+            s = storage.load_session(sid)
+            s.bdinfo_result.main_mpls = "00801.mpls"
+            storage.save_session(s)
+            return original(session)
+
+        with mock.patch.object(tab1, "_otro_proyecto_con_el_mismo_destino",
+                               _y_entretanto_cambia):
+            self.assertEqual(self._ejecutar(sid).status_code, 200)
+        s = self._cargar(sid)
+        self.assertEqual((s.status, s.bdinfo_result.main_mpls), ("queued", "00801.mpls"))
 
     def test_ejecutar_la_misma_version_se_encola(self):
         sid = self._sesion(execution_history=[self._hecho("00800.mpls")])

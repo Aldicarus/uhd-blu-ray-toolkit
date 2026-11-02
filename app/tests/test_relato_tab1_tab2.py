@@ -452,6 +452,10 @@ class TestNadieVuelveADerivarElEstadoAMano(unittest.TestCase):
         "_getExecRecord":
             "devuelve el registro que el visor de log pide por índice, sin "
             "mirar su estado",
+        "_mkvYaRipeado":
+            "busca el MKV del último rip terminado para avisar, en el diálogo "
+            "de la versión, de que se conserva; no decide el estado de la "
+            "tarjeta",
         "_ejecucionDelHistorial":
             "busca la ejecución a la que apunta una línea del historial "
             "(`ref_log` = `sesion:{id}#{run}`) para enseñar SU log y sus "

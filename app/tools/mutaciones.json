@@ -6692,7 +6692,8 @@
   "viejo": "    prefijo = \"#GUI#error \" if \"--gui-mode\" in ARGV else \"Error: \"\n",
   "nuevo": "    prefijo = \"Error: \"\n",
   "modulos": [
-   "test_salida_mkvmerge"
+   "test_salida_mkvmerge",
+   "test_fases_de_tab1"
   ]
  },
  {
@@ -6848,6 +6849,123 @@
   "nuevo": "",
   "modulos": [
    "test_titulo_dudoso_en_pantalla"
+  ]
+ },
+ {
+  "id": "T9V-18 el guard mira la ejecución más antigua del destino",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "    for r in reversed(session.execution_history or []):\n        if r.status != \"done\" or not r.output_mkv_path:",
+  "nuevo": "    for r in session.execution_history or []:\n        if r.status != \"done\" or not r.output_mkv_path:",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-19 el guard no mira qué fichero escribió cada ejecución",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "            suyo = Path(r.output_mkv_path).resolve() == destino_real\n",
+  "nuevo": "            suyo = True\n",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-20 el cambio de versión no reserva el proyecto",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "    _cambiando_version.add(session_id)\n",
+  "nuevo": "",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-21 anotar el historial reetiqueta lo ya anotado",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        if not r.mpls:\n            r.mpls = mpls\n",
+  "nuevo": "        if True:\n            r.mpls = mpls\n",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-22 el guard bloquea aunque el MKV ya no exista",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "    if not destino.exists():\n        return None\n    # Las dos rutas resueltas",
+  "nuevo": "    # Las dos rutas resueltas",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-23 no se puede cambiar la versión de un ISO",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "            (session.source_type or \"iso\") not in (\"iso\", \"bdmv_folder\"):\n",
+  "nuevo": "            (session.source_type or \"iso\") not in (\"bdmv_folder\",):\n",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-24 las pistas de la versión nueva ignoran «mantener todos» los subtítulos",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "                             subtitle_mode=fresca.subtitle_mode)\n",
+  "nuevo": "                             subtitle_mode=\"filtered\")\n",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-25 los capítulos se quedan los de la versión de antes",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        fresca.chapters = analisis[\"chapters\"]\n",
+  "nuevo": "",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-26 el botón del panel no cambia nada",
+  "fichero": "app/static/tab1.js",
+  "viejo": "  const r = await preguntarPorElTitulo(session, 'cambiar');\n  if (r.accion === 'cambiar') await _aplicarVersion(session, r.mpls);\n",
+  "nuevo": "  const r = await preguntarPorElTitulo(session, 'cambiar');\n",
+  "modulos": [
+   "test_titulo_dudoso_en_pantalla"
+  ]
+ },
+ {
+  "id": "T9V-27 execute guarda la copia de la sesión que leyó al empezar",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        raise HTTPException(status_code=409, detail=tr('tab1.version_cambiando'))\n    session = load_session(session_id)\n",
+  "nuevo": "        raise HTTPException(status_code=409, detail=tr('tab1.version_cambiando'))\n",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-28 con varias versiones se reintenta con un playlist de varios PlayItems",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "    if varias_versiones and len(_segmentos_del_mpls(mpls_path) or []) != 1:\n",
+  "nuevo": "    if varias_versiones and len(_segmentos_del_mpls(mpls_path) or []) > 99:\n",
+  "modulos": [
+   "test_orquestador_tab1"
+  ]
+ },
+ {
+  "id": "T9V-29 con varias versiones basta el 2 % de la duración",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "                                 and abs(m2ts_dur - pl_dur) <= TOLERANCIA_VERSION_S):\n",
+  "nuevo": "                                 and abs(m2ts_dur - pl_dur) <= 1e9):\n",
+  "modulos": [
+   "test_orquestador_tab1"
+  ]
+ },
+ {
+  "id": "T9V-30 un proyecto borrado durante el cambio se recrea",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        if fresca is None:\n            # Se borró mientras se analizaba: guardar lo recrearía.\n            raise HTTPException(status_code=404, detail=tr('tab1.sesion_no_encontrada'))\n",
+  "nuevo": "        if fresca is None:\n            fresca = session\n",
+  "modulos": [
+   "test_seleccion_mpls_principal"
   ]
  }
 ]

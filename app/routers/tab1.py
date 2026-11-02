@@ -1168,7 +1168,10 @@ async def cambiar_version(session_id: str, body: VersionRequest):
 
         # Lo nuevo se aplica sobre la sesión RELEÍDA: el análisis tarda un par
         # de minutos y en ese rato se ha podido editar (el título, el nombre).
-        fresca = load_session(session_id) or session
+        fresca = load_session(session_id)
+        if fresca is None:
+            # Se borró mientras se analizaba: guardar lo recrearía.
+            raise HTTPException(status_code=404, detail=tr('tab1.sesion_no_encontrada'))
         if fresca.status in ("running", "queued"):
             raise HTTPException(status_code=409, detail=tr('tab1.version_con_trabajo_en_curso'))
         bd = analisis["bdinfo_result"]
@@ -2987,15 +2990,26 @@ async def execute_session(session_id: str):
     if otro:
         raise HTTPException(status_code=409, detail=tr(
             'tab1.otro_proyecto_escribe_ese_mkv', mkv_name=session.mkv_name, otro=otro))
+    # Lo que se guarda es la sesión RELEÍDA, sin un `await` en medio entre
+    # leerla, comprobarla y pasarla a `queued`: durante los `await` de arriba
+    # un cambio de versión ha podido empezar —y guardaría al terminar la
+    # sesión en `pending` encima de este encargo— o empezar y TERMINAR, y
+    # guardar aquí la copia de antes deshacía el cambio y encolaba la versión
+    # vieja (revisión de Codex de la implementación).
+    if session_id in _cambiando_version:
+        raise HTTPException(status_code=409, detail=tr('tab1.version_cambiando'))
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=tr('tab1.sesion_no_encontrada'))
+    if session.status in ("running", "queued"):
+        raise HTTPException(
+            status_code=400,
+            detail=tr('tab1.la_sesion_ya_esta_en_ejecucion', status=session.status),
+        )
     de_otra = _mkv_de_otra_version(session)
     if de_otra:
         raise HTTPException(status_code=409, detail=tr(
             'tab1.mkv_de_otra_version', mkv=de_otra[0], mpls=de_otra[1]))
-    # Justo antes de pasar a `queued`, sin un `await` en medio: un cambio de
-    # versión que empezara durante los de arriba guardaría al terminar la
-    # sesión en `pending` encima de este encargo (revisión de Codex).
-    if session_id in _cambiando_version:
-        raise HTTPException(status_code=409, detail=tr('tab1.version_cambiando'))
 
     session.status        = "queued"
     session.output_log    = []
@@ -3101,6 +3115,12 @@ async def _mkvmerge_container_duration_s(path: str) -> float:
     return _extract_duration((data.get("container", {}) or {}).get("properties", {}) or {})
 
 
+# Lo que pueden diferir la duración del playlist y la de su único M2TS para
+# que el M2TS sea esa versión de la película: el redondeo de mkvmerge, no un
+# tramo que el playlist no reproduce.
+TOLERANCIA_VERSION_S = 2.0
+
+
 async def _resolve_main_m2ts_for_fallback(
     mount_point: "str | None",
     session: Session,
@@ -3132,11 +3152,12 @@ async def _resolve_main_m2ts_for_fallback(
     # comprobación de duración de abajo. Entregar otro montaje con el nombre
     # de este es peor que no entregar nada (revisión de Codex del plan).
     avisos = session.bdinfo_result.avisos_titulo if session.bdinfo_result else []
-    if len(versiones_del_aviso(avisos)) > 1:
-        clips = {c for c, _, _ in (_segmentos_del_mpls(mpls_path) or [])}
-        if len(clips) != 1:
-            raise RuntimeError(tr('tab1.reintento_m2ts_no_con_varias_versiones',
-                                  mpls=Path(mpls_path).name))
+    varias_versiones = len(versiones_del_aviso(avisos)) > 1
+    if varias_versiones and len(_segmentos_del_mpls(mpls_path) or []) != 1:
+        # Un solo PlayItem: con varios —aunque sean del mismo clip— el
+        # playlist corta o reordena el M2TS, y el M2TS entero no es él.
+        raise RuntimeError(tr('tab1.reintento_m2ts_no_con_varias_versiones',
+                              mpls=Path(mpls_path).name))
 
     # 1. Localizar el M2TS principal — preferimos el detectado en Fase A.
     m2ts_path = None
@@ -3164,6 +3185,14 @@ async def _resolve_main_m2ts_for_fallback(
     # 2. Verificar que el M2TS cubre el título completo.
     pl_dur   = await _mkvmerge_container_duration_s(mpls_path)
     m2ts_dur = await _mkvmerge_container_duration_s(m2ts_path)
+    # Con varias versiones, el PlayItem tiene que reproducir el M2TS ENTERO:
+    # uno que empieza en el minuto 1 cabe en el 2 % de abajo y el M2TS
+    # completo añadiría ese minuto (revisión de Codex de la implementación).
+    # Sin las dos duraciones no hay con qué demostrarlo, y no se reintenta.
+    if varias_versiones and not (pl_dur > 0 and m2ts_dur > 0
+                                 and abs(m2ts_dur - pl_dur) <= TOLERANCIA_VERSION_S):
+        raise RuntimeError(tr('tab1.reintento_m2ts_no_con_varias_versiones',
+                              mpls=Path(mpls_path).name))
     if not m2ts_covers_title(pl_dur, m2ts_dur):
         raise RuntimeError(
             tr('tab1.el_m2ts_principal_min_no_cubre', p1=format(m2ts_dur / 60, '.0f'), p2=format(pl_dur / 60, '.0f'))

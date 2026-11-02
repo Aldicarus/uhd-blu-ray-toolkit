@@ -3882,11 +3882,15 @@ extendida, la del director o la sin censura: un MPLS no lleva nombre).
   (`_nombre_con_el_ano_de_la_ficha`): volver a buscarla por el nombre del
   origen, como hace la hidratación al crear, podía sustituir una elegida a
   mano. `mpls_path` queda vacío (una película va por `main_mpls`) y el estado,
-  en `pending`.
-- **Una ejecución nunca solapa con un cambio de versión**: `_cambiando_version`
-  (en memoria) lo mira `execute` justo antes de pasar a `queued`, sin un
-  `await` en medio, y el cambio no guarda si al terminar la sesión está en la
-  cola.
+  en `pending`. Si el proyecto se borró mientras se analizaba, no se guarda
+  nada (404): `load_session(...) or session` lo recreaba.
+- **Una ejecución nunca solapa con un cambio de versión**: el cambio reserva
+  el proyecto en `_cambiando_version` (en memoria) y no guarda si al terminar
+  la sesión está en la cola; `execute` mira la reserva y **guarda la sesión
+  RELEÍDA** justo antes de pasar a `queued`, sin un `await` entre leerla,
+  comprobarla y guardarla. Guardaba la copia que leyó al empezar, y un cambio
+  de versión que empezara y terminara durante sus `await` quedaba deshecho,
+  con la versión vieja encolada (revisión de Codex de la implementación).
 - **El rip no sustituye el MKV de la otra versión.** Re-ejecutar escribe sobre
   el mismo nombre —es como se re-ripea—, pero tras cambiar de versión ese
   nombre puede ser el del rip de la otra. Cada `ExecutionRecord` anota su
@@ -3906,8 +3910,12 @@ extendida, la del director o la sin censura: un MPLS no lleva nombre).
   versiones de un disco comparten casi todos sus segmentos; si el playlist
   elegido reproduce varios, el M2TS mayor no es esa versión, y dos montajes
   pueden diferir menos que el 2 % que tolera `m2ts_covers_title`. Con
-  `varias_versiones`, el reintento exige que el MPLS reproduzca un solo clip
-  (`_segmentos_del_mpls`); si no, falla con el motivo.
+  `varias_versiones`, el reintento exige **un solo PlayItem**
+  (`_segmentos_del_mpls`) y que el M2TS dure lo mismo que el playlist
+  (`TOLERANCIA_VERSION_S`, 2 s): un único clip no basta, porque un PlayItem
+  que empieza en el minuto 1 cabe en el 2 % y el M2TS entero añadiría ese
+  minuto, y dos tramos del mismo clip lo recortan. Sin las dos duraciones no
+  se reintenta. Si no se cumple, falla con el motivo.
 - **El `mkvmerge` falso emite `file_name`**, como el real (está en la captura
   del contrato): de ahí sale `main_mpls`, y sin él los tests veían un
   `main_mpls` vacío y nadie podía comprobar qué versión se había elegido.
@@ -3915,7 +3923,12 @@ extendida, la del director o la sin censura: un MPLS no lleva nombre).
 `TestCambiarDeVersion` y los de `mpls_elegido` en
 `test_seleccion_mpls_principal`, `TestDosVersionesDelMismoDisco` en
 `test_orquestador_tab1` y el diálogo en Chrome, en las cuatro lenguas, en
-`test_titulo_dudoso_en_pantalla`; mutaciones `T9V-*`.
+`test_titulo_dudoso_en_pantalla`; mutaciones `T9V-*`. La revisión de Codex
+de los tests propuso nueve mutaciones que sobrevivían (la ejecución que manda
+cuando varias escribieron el destino, la que escribió OTRO fichero, la reserva
+que nadie tomaba, el reetiquetado de lo ya anotado, el guard sin fichero, el
+ISO, el modo de subtítulos, los capítulos y el botón del panel de punta a
+punta) y las nueve tienen hoy su test.
 
 **Reintento con más tiempo** (`_identificar_candidatos`): un `mkvmerge -J` que
 se agota (`_mkvmerge_j` devuelve `agotado`, que separa «no terminó» de «no
@@ -4415,7 +4428,7 @@ versión) y las 46 comprobaciones de su Fase C en verde.
 ### La auditoría de la suite del 2026-10-17: lo que cambió en cómo se prueba
 
 Con **38 mutaciones** propuestas por Codex aplicadas A LA VEZ, los 3.117 tests
-de entonces seguían en verde. Hoy hay **759 mutaciones** en
+de entonces seguían en verde. Hoy hay **772 mutaciones** en
 `app/tools/mutaciones.json` —las 42 de la auditoría que siguen aplicando, más
 una por cada arreglo que salió de ella, las de la pestaña Multiplexar, las
 `T5R-*` de la pasada de registro a toda la app, las `T2R-*`/`T2F-*`/`T4A-*`
