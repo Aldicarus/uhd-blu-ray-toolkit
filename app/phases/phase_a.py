@@ -146,8 +146,13 @@ CHANNELS_MAP: dict[int, str] = {
 #  EJECUCIÓN: mkvmerge -J
 # ══════════════════════════════════════════════════════════════════════
 
+class VersionNoElegible(RuntimeError):
+    """El MPLS que eligió el usuario no es un título completo del disco."""
+
+
 async def run_mkvmerge_identify(share_path: str, log_callback=None,
-                                avisos: list | None = None) -> tuple[dict, str]:
+                                avisos: list | None = None,
+                                mpls_elegido: str | None = None) -> tuple[dict, str]:
     """
     Encuentra el MPLS principal y ejecuta ``mkvmerge -J`` sobre él.
 
@@ -155,6 +160,13 @@ async def run_mkvmerge_identify(share_path: str, log_callback=None,
     ``elegir_mpls_principal``: fuera los que no tienen audio y los que
     reproducen menos de la mitad que el mayor, y de los que quedan, el de
     más pistas de audio.
+
+    Con ``mpls_elegido`` (el nombre, «00801.mpls») el título lo ha elegido el
+    usuario entre las versiones del aviso ``varias_versiones``: se toma ese en
+    vez de aplicar la regla, pero tiene que ser uno de los que la regla daba
+    por título completo (``_elegibles``), y si no, RuntimeError. Todo lo demás
+    es el mismo análisis, y los avisos se calculan respecto a él: el de
+    versiones pasa a nombrar como alternativa la que eligió la regla.
 
     Args:
         share_path:   Ruta al directorio raíz del disco montado
@@ -205,7 +217,13 @@ async def run_mkvmerge_identify(share_path: str, log_callback=None,
                   f"{_duracion_del_candidato(c) / 60:.1f} min)" for c in evaluados),
     )
 
-    elegido = elegir_mpls_principal(evaluados)
+    if mpls_elegido:
+        elegido = next((c for c in _elegibles(evaluados)
+                        if c["path"].name.casefold() == mpls_elegido.casefold()), None)
+        if elegido is None:
+            raise VersionNoElegible(tr('phase_a.version_elegida_no_es_un_titulo', mpls=mpls_elegido))
+    else:
+        elegido = elegir_mpls_principal(evaluados)
     if elegido is None:
         raise RuntimeError(
             tr('phase_a.ningun_mpls_valido_con_pistas_de', playlist_dir=playlist_dir)
@@ -217,6 +235,9 @@ async def run_mkvmerge_identify(share_path: str, log_callback=None,
         await log_callback(
             '[Fase A] ' + tr('phase_a.mpls_principal_pistas_audio_pistas_total', p1=best_mpls.name, best_audio_count=_pistas_de_audio(best_data), n_tracks=n_tracks)
         )
+        if mpls_elegido:
+            await log_callback('[Fase A] ' + tr('phase_a.version_elegida_por_el_usuario',
+                                                mpls=best_mpls.name))
 
     clips_de = {p: ([c for c, _, _ in s] if s else None)
                 for p, s in segmentos_de.items()}
@@ -345,6 +366,16 @@ def _avisos_del_titulo(elegido: dict, evaluados: list[dict],
             avisos.append({"tipo": "playlists_ofuscados", "mpls": nombre,
                            "n": len(senuelos)})
     return avisos
+
+
+def versiones_del_aviso(avisos: list[dict] | None) -> list[tuple[str, int]]:
+    """Las versiones de la película que dejó el aviso ``varias_versiones``,
+    la elegida primero: ``[(mpls, segundos), …]``. Vacía si no lo hay."""
+    aviso = next((a for a in avisos or [] if a.get("tipo") == "varias_versiones"), None)
+    if not aviso:
+        return []
+    return [(aviso["mpls"], int(aviso.get("segundos") or 0))] + [
+        (o["mpls"], int(o.get("segundos") or 0)) for o in aviso.get("otras") or []]
 
 
 def _hms(segundos: float) -> str:
@@ -3083,6 +3114,7 @@ async def run_full_analysis(
     share_path: str,
     log_callback=None,
     pgs_progress_callback=None,
+    mpls_elegido: str | None = None,
 ) -> tuple[BDInfoResult, str, list[dict]]:
     """
     Análisis completo del disco montado:
@@ -3090,6 +3122,9 @@ async def run_full_analysis(
       2. Capítulos del MPLS (requerido)
       3. MediaInfo sobre m2ts principal (opcional)
       4. dovi_tool RPU analysis (opcional, solo si hay EL)
+
+    ``mpls_elegido``: la versión que eligió el usuario (ver
+    ``run_mkvmerge_identify``); sin él, la elige la regla.
 
     Devuelve (bdinfo_result, mpls_path, chapters_raw).
     """
@@ -3105,7 +3140,7 @@ async def run_full_analysis(
         await log_callback('[Fase A] ┌─ ' + tr('phase_a.paso_1_4_identificando_mpls_y'))
     avisos_titulo: list[dict] = []
     mkvmerge_data, mpls_path = await run_mkvmerge_identify(
-        share_path, log_callback, avisos=avisos_titulo)
+        share_path, log_callback, avisos=avisos_titulo, mpls_elegido=mpls_elegido)
     bdinfo = parse_mkvmerge_json(mkvmerge_data)
     bdinfo.avisos_titulo = avisos_titulo
 

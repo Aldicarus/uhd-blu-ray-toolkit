@@ -979,6 +979,18 @@
         ]
       ]
     },
+    "POST /api/sessions/{session_id}/version": {
+      "body": [
+        "application/json"
+      ],
+      "params": [
+        [
+          "session_id",
+          "path",
+          true
+        ]
+      ]
+    },
     "POST /api/settings": {
       "body": [
         "application/json"

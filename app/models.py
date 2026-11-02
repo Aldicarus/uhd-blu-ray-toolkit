@@ -786,6 +786,14 @@ class ExecutionRecord(BaseModel):
     output_mkv_path: str | None = None
     """Ruta del MKV final generado (solo si status='done')."""
 
+    mpls: str = ""
+    """El MPLS (solo el nombre) de la versión de la película que se ripeó.
+    Con «Cambiar de versión» un proyecto puede ripear dos versiones del mismo
+    disco con el mismo nombre de MKV; esto es lo que deja saber de cuál es el
+    MKV que hay en el destino. Vacío en las ejecuciones de antes de que
+    existiera: el cambio de versión las anota con el MPLS que tenía la sesión,
+    que hasta entonces no podía cambiar."""
+
     phase_elapsed: dict[str, float | None] = {}
     """Tiempo en segundos de cada fase: {"mount": 2.3, "extract": 345.6,
     "unmount": 1.2, "write": 12.4}. None si la fase no se ejecutó."""
@@ -1045,6 +1053,14 @@ class AnalyzeRequest(BaseModel):
     source_path: str | None = None
     """Ruta relativa a /mnt/isos. Para bdmv_folder: la carpeta padre
     de BDMV/. Para m2ts: el fichero .m2ts."""
+
+
+class VersionRequest(BaseModel):
+    """Payload de POST /api/sessions/{id}/version."""
+
+    mpls: str
+    """El MPLS de la versión elegida («00801.mpls»), de las que dejó el aviso
+    ``varias_versiones`` de la sesión."""
 
 
 class QueueReorderRequest(BaseModel):

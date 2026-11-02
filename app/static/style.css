@@ -1833,6 +1833,17 @@ select { appearance: none; cursor: pointer;
   line-height: 1.45;
 }
 .titulo-dudoso-lista li + li { margin-top: 6px; }
+/* Las versiones de la película, una tarjeta por versión (el patrón de
+   «elegir uno de varios» de `.cmv40-repo-card`). */
+.titulo-versiones {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.titulo-version { font-size: var(--fs-md); }
+.titulo-version-nota { color: var(--text-3); font-size: var(--fs-sm); }
+.titulo-dudoso-notas { color: var(--text-2); }
 .modal-footer {
   display: flex;
   justify-content: flex-end;

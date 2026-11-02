@@ -6694,5 +6694,160 @@
   "modulos": [
    "test_salida_mkvmerge"
   ]
+ },
+ {
+  "id": "T9V-1 la versión elegida se ignora y manda la regla",
+  "fichero": "app/phases/phase_a.py",
+  "viejo": "    if mpls_elegido:\n        elegido = next((c for c in _elegibles(evaluados)",
+  "nuevo": "    if False:\n        elegido = next((c for c in _elegibles(evaluados)",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-2 se acepta como versión cualquier playlist identificado",
+  "fichero": "app/phases/phase_a.py",
+  "viejo": "        elegido = next((c for c in _elegibles(evaluados)\n",
+  "nuevo": "        elegido = next((c for c in evaluados\n",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-3 el endpoint no comprueba que la versión estaba en la lista",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "    if mpls.casefold() not in {m.casefold() for m in ofrecidas}:\n",
+  "nuevo": "    if False:\n",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-4 las pistas de la versión nueva ignoran «mantener todas»",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "                             analisis[\"audio_dcp\"], audio_mode=fresca.audio_mode,\n",
+  "nuevo": "                             analisis[\"audio_dcp\"], audio_mode=\"filtered\",\n",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-5 lo ripeado antes no se anota con la versión de antes",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        _anotar_mpls_en_el_historial(fresca.execution_history, actual)\n",
+  "nuevo": "",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-6 el guard no mira de qué versión es el MKV del destino",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        if r.mpls and actual and r.mpls.casefold() != actual:\n            return destino.name, r.mpls\n",
+  "nuevo": "",
+  "modulos": [
+   "test_seleccion_mpls_principal",
+   "test_orquestador_tab1"
+  ]
+ },
+ {
+  "id": "T9V-7 se puede encolar con un cambio de versión en marcha",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "    if session_id in _cambiando_version:\n        raise HTTPException(status_code=409, detail=tr('tab1.version_cambiando'))\n",
+  "nuevo": "",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-8 la ejecución no anota de qué MPLS salió",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        mpls            = _mpls_nombre_de_la_sesion(session) or \"\",\n",
+  "nuevo": "",
+  "modulos": [
+   "test_orquestador_tab1"
+  ]
+ },
+ {
+  "id": "T9V-9 «Reanalizar» vuelve a perder el historial",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        execution_history=historial_previo,\n",
+  "nuevo": "",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-10 el reintento con el M2TS entrega otro montaje",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        if len(clips) != 1:\n            raise RuntimeError(tr('tab1.reintento_m2ts_no_con_varias_versiones',\n",
+  "nuevo": "        if False:\n            raise RuntimeError(tr('tab1.reintento_m2ts_no_con_varias_versiones',\n",
+  "modulos": [
+   "test_orquestador_tab1"
+  ]
+ },
+ {
+  "id": "T9V-11 el nombre deja de tomar el año de la ficha del proyecto",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "    if ano_fichero == \"0000\" and ano:\n        return _build_mkv_name(",
+  "nuevo": "    if False:\n        return _build_mkv_name(",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-12 el cambio de versión pisa una sesión que pasó a la cola",
+  "fichero": "app/routers/tab1.py",
+  "viejo": "        if fresca.status in (\"running\", \"queued\"):\n            raise HTTPException(status_code=409, detail=tr('tab1.version_con_trabajo_en_curso'))\n",
+  "nuevo": "",
+  "modulos": [
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-13 un cambio de versión que no se hace borra el proyecto",
+  "fichero": "app/static/tab1.js",
+  "viejo": "    if (r.accion === 'abandonar') await deleteSession(session.id);\n",
+  "nuevo": "    if (r.accion !== 'seguir') await deleteSession(session.id);\n",
+  "modulos": [
+   "test_titulo_dudoso_en_pantalla"
+  ]
+ },
+ {
+  "id": "T9V-14 el diálogo repite la frase de las versiones",
+  "fichero": "app/static/tab1.js",
+  "viejo": "    .filter(a => !(versiones.length > 1 && a && a.tipo === 'varias_versiones'));\n",
+  "nuevo": "    .filter(a => true);\n",
+  "modulos": [
+   "test_titulo_dudoso_en_pantalla"
+  ]
+ },
+ {
+  "id": "T9V-15 «Cambiar de versión» se ofrece con el proyecto en la cola",
+  "fichero": "app/static/tab1.js",
+  "viejo": "  if (versionesDelTitulo(session).length > 1 && !ocupado) show('titulo-version-btn');\n",
+  "nuevo": "  if (versionesDelTitulo(session).length > 1) show('titulo-version-btn');\n",
+  "modulos": [
+   "test_titulo_dudoso_en_pantalla"
+  ]
+ },
+ {
+  "id": "T9V-16 el mkvmerge falso deja de dar file_name",
+  "fichero": "app/tests/cmv40_harness.py",
+  "viejo": "            \"file_name\": positional[-1] if positional else \"\",\n",
+  "nuevo": "",
+  "modulos": [
+   "test_contrato_de_los_fakes",
+   "test_seleccion_mpls_principal"
+  ]
+ },
+ {
+  "id": "T9V-17 desde el panel se puede abandonar el proyecto",
+  "fichero": "app/static/tab1.js",
+  "viejo": "  document.getElementById('titulo-dudoso-abandonar').style.display = cambiar ? 'none' : '';\n",
+  "nuevo": "",
+  "modulos": [
+   "test_titulo_dudoso_en_pantalla"
+  ]
  }
 ]

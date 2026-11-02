@@ -429,6 +429,9 @@ CLASE_POR_RUTA: dict[str, str] = {
     # pre-flight sigue en una task, que se registra ella misma.
     "POST /api/cmv40/{session_id}/retry-preflight":        CLASE_INTERACTIVO,
     "POST /api/sessions/{session_id}/reset-chapters": CLASE_INTERACTIVO,  # re-monta el ISO
+    # Cambiar la versión de la película: rehace las fases A y B sobre otro MPLS
+    # del disco con el usuario delante, como `/api/analyze` (un par de minutos).
+    "POST /api/sessions/{session_id}/version": CLASE_INTERACTIVO,
     # Borrados: `rmtree` de decenas o cientos de GB sobre ZFS.
     "DELETE /api/cmv40/{session_id}":       CLASE_INTERACTIVO,
     "POST /api/cmv40/{session_id}/cleanup": CLASE_INTERACTIVO,

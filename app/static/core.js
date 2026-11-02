@@ -1149,6 +1149,9 @@ function buildProjectPanelHTML(pid) {
       <div><strong><span data-i18n="tab1.revisa_el_titulo_elegido"></span></strong>
         <span id="${pid}-titulo-aviso-text"></span>
       </div>
+      <button class="btn btn-xs" id="${pid}-titulo-version-btn" style="display:none; margin-left:auto"
+        onclick="cambiarDeVersion(getActiveProject()?.sessionId)"
+        data-i18n="tab1.cambiar_de_version"></button>
     </div>
 
     <div id="${pid}-vo-warning-banner" class="banner warning" style="display:none">

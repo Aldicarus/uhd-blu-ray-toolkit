@@ -3830,20 +3830,92 @@ como frases, para que la interfaz los escriba en el idioma de cuando se miran
 | `varias_versiones` | otros títulos completos —pasan el filtro y tienen audio— con más de `DIFERENCIA_MINIMA_ENTRE_VERSIONES_S` (60 s) de diferencia: el montaje de cine y el extendido. Unos créditos localizados no son otra versión |
 | `playlists_ofuscados` | al menos `MIN_SENUELOS` (3) playlists con los mismos clips que el elegido **en otro orden**: así esconden algunos discos la película, y si el elegido es un señuelo el MKV sale con las escenas desordenadas |
 
-- **Al terminar el análisis, si hay avisos, un diálogo con dos salidas**
-  (`titulo-dudoso-modal`, `preguntarPorElTitulo`): seguir o **abandonar**,
-  que borra el proyecto con el `deleteSession` de siempre. Sin «Cancelar»:
-  sería una tercera salida que significa lo mismo que seguir.
+- **Al terminar el análisis, si hay avisos, un diálogo** (`titulo-dudoso-modal`,
+  `preguntarPorElTitulo`): seguir o **abandonar**, que borra el proyecto con el
+  `deleteSession` de siempre, y con `varias_versiones` también **elegir otra
+  versión** (ver «La versión de la película se elige» abajo). Sin «Cancelar»:
+  sería una salida más que significa lo mismo que seguir.
 - **Y un aviso fijo en el panel** (`renderAvisosDelTitulo`), porque el diálogo
   sale una vez y el rip puede ser días después.
 - **Un tipo que el frontend no conozca no se pinta**: un servidor más nuevo
   no puede hacer salir su id en pantalla.
-- **«Abandonar» no da la otra versión.** No hay forma de elegir el MPLS desde
-  la interfaz; lo que el aviso compra es saber qué versión se va a ripear
-  antes de gastar cuarenta minutos en ella.
 - **«Abandonar» sobre un «Reanalizar» borra el proyecto**, que es correcto:
   `/api/analyze` reutiliza el id por fingerprint y ya ha reescrito la sesión
-  de antes.
+  de antes. Lo que «Reanalizar» conserva es el historial de ejecuciones
+  (anotado con su MPLS, ver abajo): sin él, el rip siguiente no sabría de qué
+  versión es el MKV que hay en el destino.
+
+#### La versión de la película se elige (2026-11-02)
+
+Hasta entonces «Abandonar» era la única salida de un disco con dos versiones,
+y el aviso servía para saber cuál se iba a ripear. Lo pidió un tester con Fast
+& Furious 9 (2021), un disco «2in1»: `00800.mpls` (2:22:52, la de la regla) y
+`00801.mpls` (2:29:55). Decidido con el usuario: **una versión por proyecto**
+—no dos proyectos del mismo ISO— y **sin etiqueta automática** en el nombre
+del MKV, que sigue siendo editable (la app no sabe si la larga es la
+extendida, la del director o la sin censura: un MPLS no lleva nombre).
+
+- **El diálogo enseña una tarjeta por versión** (la de ahora marcada, las
+  otras con los minutos de diferencia) en vez de la frase del aviso, y con
+  otra marcada dice lo que cuesta: se vuelve a analizar el disco y las pistas
+  y los capítulos se recalculan; si el proyecto ya tiene un rip terminado, que
+  ese MKV se conserva y que para ripear otra versión hay que cambiarle el
+  nombre. **El aviso fijo del panel lleva «Cambiar de versión»**, que abre el
+  mismo diálogo con «Cancelar» en vez de «Abandonar». Un cambio que falla no
+  borra el proyecto: el diálogo devuelve `{accion, mpls}` y solo `abandonar`
+  borra.
+- **`POST /api/sessions/{id}/version` con `{mpls}`** (clase INTERACTIVO, como
+  `/api/analyze`). Solo acepta un MPLS de la lista del aviso
+  `varias_versiones` —ni un nombre arbitrario ni otro playlist—, solo en una
+  película de ISO o carpeta BDMV, y nunca con el proyecto en la cola o en
+  marcha (409). Rehace las fases A y B con
+  `run_full_analysis(..., mpls_elegido=)`, que toma ese MPLS en vez de la regla
+  **si es uno de los títulos completos** (`_elegibles`; si no,
+  `VersionNoElegible`, 400) y calcula los avisos respecto a él: el nuevo
+  nombra como alternativa la que eligió la regla. El análisis es el de
+  `/api/analyze`, extraído a `_analizar_el_origen`.
+- **Actualiza la MISMA sesión** —`/api/analyze` crea una nueva y perdería el
+  historial—, releída al terminar porque el análisis tarda un par de minutos.
+  Conserva la ficha de TMDb y el historial; las pistas se rehacen **con los
+  modos de la sesión** («mantener todas»), como `reapply-rules`; el nombre,
+  si no se editó, con el año de la ficha que YA tiene el proyecto
+  (`_nombre_con_el_ano_de_la_ficha`): volver a buscarla por el nombre del
+  origen, como hace la hidratación al crear, podía sustituir una elegida a
+  mano. `mpls_path` queda vacío (una película va por `main_mpls`) y el estado,
+  en `pending`.
+- **Una ejecución nunca solapa con un cambio de versión**: `_cambiando_version`
+  (en memoria) lo mira `execute` justo antes de pasar a `queued`, sin un
+  `await` en medio, y el cambio no guarda si al terminar la sesión está en la
+  cola.
+- **El rip no sustituye el MKV de la otra versión.** Re-ejecutar escribe sobre
+  el mismo nombre —es como se re-ripea—, pero tras cambiar de versión ese
+  nombre puede ser el del rip de la otra. Cada `ExecutionRecord` anota su
+  `mpls`, y `_mkv_de_otra_version` mira la última ejecución terminada que
+  escribió el MKV del destino: si es de otro MPLS, `execute` da 409 y
+  `_run_pipeline` para antes de extraer (la cola puede despachar cuarenta
+  minutos después). Las ejecuciones anteriores al campo se anotan con el MPLS
+  que tenía la sesión al cambiarlo o al reanalizar
+  (`_anotar_mpls_en_el_historial`): hasta entonces no podía cambiar.
+  - **No se deduce de la duración del fichero**, que fue el primer plan: dos
+    versiones pueden diferir menos que lo que acorta el reintento con el M2TS
+    principal (hasta un 2 %), un fichero ilegible no diría nada (y
+    autorizaría la sustitución), el aviso recalculado puede no listar una
+    versión que `mkvmerge -J` no supo leer, y leer el MKV exigía un `-J` sin
+    tope en `execute`. Lo encontró la revisión de Codex del plan.
+- **El reintento con el M2TS principal no entrega otro montaje.** Las
+  versiones de un disco comparten casi todos sus segmentos; si el playlist
+  elegido reproduce varios, el M2TS mayor no es esa versión, y dos montajes
+  pueden diferir menos que el 2 % que tolera `m2ts_covers_title`. Con
+  `varias_versiones`, el reintento exige que el MPLS reproduzca un solo clip
+  (`_segmentos_del_mpls`); si no, falla con el motivo.
+- **El `mkvmerge` falso emite `file_name`**, como el real (está en la captura
+  del contrato): de ahí sale `main_mpls`, y sin él los tests veían un
+  `main_mpls` vacío y nadie podía comprobar qué versión se había elegido.
+
+`TestCambiarDeVersion` y los de `mpls_elegido` en
+`test_seleccion_mpls_principal`, `TestDosVersionesDelMismoDisco` en
+`test_orquestador_tab1` y el diálogo en Chrome, en las cuatro lenguas, en
+`test_titulo_dudoso_en_pantalla`; mutaciones `T9V-*`.
 
 **Reintento con más tiempo** (`_identificar_candidatos`): un `mkvmerge -J` que
 se agota (`_mkvmerge_j` devuelve `agotado`, que separa «no terminó» de «no
@@ -4343,7 +4415,7 @@ versión) y las 46 comprobaciones de su Fase C en verde.
 ### La auditoría de la suite del 2026-10-17: lo que cambió en cómo se prueba
 
 Con **38 mutaciones** propuestas por Codex aplicadas A LA VEZ, los 3.117 tests
-de entonces seguían en verde. Hoy hay **742 mutaciones** en
+de entonces seguían en verde. Hoy hay **759 mutaciones** en
 `app/tools/mutaciones.json` —las 42 de la auditoría que siguen aplicando, más
 una por cada arreglo que salió de ella, las de la pestaña Multiplexar, las
 `T5R-*` de la pasada de registro a toda la app, las `T2R-*`/`T2F-*`/`T4A-*`
@@ -4351,8 +4423,9 @@ de la reubicación de los MKV movidos y del análisis del MKV multiplexado,
 las `T5X-*` de la revisión de Codex previa a la v3.5.0, las `T7*` de lo
 que enseñaron las capturas de la portada (los comandos citados del log, los
 números en su idioma, textos y dos piezas de la interfaz), las `T6V-*` de la
-regresión real y de la base 24.04, las `T8D-*` del alemán y las `T9E-*`
-de los errores de mkvmerge que no se veían— y
+regresión real y de la base 24.04, las `T8D-*` del alemán, las `T9E-*`
+de los errores de mkvmerge que no se veían y las `T9V-*` de la elección de
+versión— y
 `app/tools/mutar.py` las caza todas. Lo que se aprendió, por orden de cuántas veces se repitió:
 
 - **Se probaba que algo PASA, no la frontera en que deja de pasar.** Umbrales

@@ -218,6 +218,9 @@ class TestMkvmergeIdentify(ConFakes):
         self.tb.define_mkv(mkv.name)
         fake = json.loads(self.correr("mkvmerge", "-J", str(mkv)).stdout)
         self.assertLessEqual(set(fake), set(J_REAL))
+        # `file_name` es de donde la Fase A saca el MPLS elegido.
+        self.assertEqual(fake["file_name"], str(mkv))
+        self.assertTrue(J_REAL["file_name"].endswith(".mkv"))
         cr, cf = (self._tipos(x["container"]["properties"]) for x in (J_REAL, fake))
         self.assertEqual({k: v for k, v in cf.items() if cr.get(k) != v}, {})
         for tipo in ("video", "audio", "subtitles"):

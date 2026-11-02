@@ -823,9 +823,56 @@ async function _probeAndRouteSource(sourceType, sourcePath, sourceName, payloadP
 }
 
 /** Lanza el análisis (Fase A+B) de un origen (ISO / carpeta BDMV / m2ts)
- *  enviando su source_type al endpoint /api/analyze. Configura el modal de
- *  progreso según el tipo y, si hay match TMDb, hidrata la cartela. */
+ *  enviando su source_type al endpoint /api/analyze. */
 async function _doAnalyzeSource(sourceType, sourcePath, sourceName, _payloadProbe) {
+  const payload = {
+    source_type: sourceType,
+    source_path: sourcePath,
+  };
+  // Compat con endpoint antiguo: si es iso, mandar también iso_path
+  if (sourceType === 'iso') payload.iso_path = sourcePath;
+
+  const session = await _conModalDeAnalisis(sourceType, sourceName, () => apiFetch('/api/analyze', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, API_FETCH_TIMEOUT_LARGO));
+
+  if (!session) {
+    showToast(tr('tab1.no_se_pudo_analizar_verifica_que', {sourcename: escHtml(sourceName)}), 'error');
+    return;
+  }
+
+  // `openProject` es idempotente: si el proyecto ya estaba abierto refresca su
+  // sesión y activa su pestaña. Solo hay que mirar ANTES si existía, para
+  // decir la verdad en el toast — la comprobación de aquí buscaba por un campo
+  // `subTab` que el objeto de Tab 1 nunca ha tenido (es de Tab 3), así que
+  // siempre decía "creado", incluso re-analizando.
+  const yaEstabaAbierto = openProjects.some(p => p.sessionId === session.id);
+  openProject(session);
+  // `showToast` pinta HTML: el nombre va escapado, o un `<` o un `&` en el
+  // nombre del fichero se interpreta como marcado.
+  showToast(
+    `${tr(yaEstabaAbierto ? 'tab1.proyecto_reanalizado' : 'tab1.proyecto_creado')}: `
+    + escHtml(session.mkv_name || sourceName), 'success');
+
+  await loadSessions();
+
+  // La Fase A eligió el título y encontró algo que no puede resolver sola.
+  // El proyecto ya existe y su panel está detrás: se sigue con él, se
+  // abandona o —si el disco trae varias versiones de la película— se elige
+  // otra, que rehace el análisis en el mismo proyecto.
+  if (avisosDelTitulo(session).length) {
+    const r = await preguntarPorElTitulo(session);
+    if (r.accion === 'abandonar') await deleteSession(session.id);
+    else if (r.accion === 'cambiar') await _aplicarVersion(session, r.mpls);
+  }
+}
+
+/** El modal «Analizando disco» alrededor de una petición que analiza un
+ *  origen: lo abre, sigue el paso real (`/api/analyze/progress`) y lo cierra
+ *  al volver. Lo usan crear un proyecto y cambiarle la versión, que rehace
+ *  el mismo análisis. Devuelve lo que devuelva `peticion`. */
+async function _conModalDeAnalisis(sourceType, sourceName, peticion) {
   // ── Modal de progreso ──────────────────────────────────────────
   // Configura título, icono y label del primer paso según el tipo de
   // fuente — sin esto el modal hablaba siempre de "Montando ISO" y
@@ -896,56 +943,33 @@ async function _doAnalyzeSource(sourceType, sourcePath, sourceName, _payloadProb
     } catch (_) { /* silenciar errores de polling */ }
   }, 500);
 
-  const payload = {
-    source_type: sourceType,
-    source_path: sourcePath,
-  };
-  // Compat con endpoint antiguo: si es iso, mandar también iso_path
-  if (sourceType === 'iso') payload.iso_path = sourcePath;
-
-  const session = await apiFetch('/api/analyze', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  }, API_FETCH_TIMEOUT_LARGO);
-
-  clearInterval(pollId);
-  steps.forEach((s, i) => {
-    if (i < steps.length - 1) _advanceAnalyzeStep(s, steps[i + 1]);
-  });
-  await new Promise(r => setTimeout(r, 400));
-  closeModal('analyze-modal');
-
-  if (!session) {
-    showToast(tr('tab1.no_se_pudo_analizar_verifica_que', {sourcename: escHtml(sourceName)}), 'error');
-    return;
+  let resultado = null;
+  try {
+    resultado = await peticion();
+  } finally {
+    clearInterval(pollId);
+    steps.forEach((s, i) => {
+      if (i < steps.length - 1) _advanceAnalyzeStep(s, steps[i + 1]);
+    });
+    await new Promise(r => setTimeout(r, 400));
+    closeModal('analyze-modal');
   }
-
-  // `openProject` es idempotente: si el proyecto ya estaba abierto refresca su
-  // sesión y activa su pestaña. Solo hay que mirar ANTES si existía, para
-  // decir la verdad en el toast — la comprobación de aquí buscaba por un campo
-  // `subTab` que el objeto de Tab 1 nunca ha tenido (es de Tab 3), así que
-  // siempre decía "creado", incluso re-analizando.
-  const yaEstabaAbierto = openProjects.some(p => p.sessionId === session.id);
-  openProject(session);
-  // `showToast` pinta HTML: el nombre va escapado, o un `<` o un `&` en el
-  // nombre del fichero se interpreta como marcado.
-  showToast(
-    `${tr(yaEstabaAbierto ? 'tab1.proyecto_reanalizado' : 'tab1.proyecto_creado')}: `
-    + escHtml(session.mkv_name || sourceName), 'success');
-
-  await loadSessions();
-
-  // La Fase A eligió el título y encontró algo que no puede resolver sola.
-  // El proyecto ya existe y su panel está detrás: se sigue con él o se
-  // abandona. No se corrige nada — la elección es la misma con aviso o sin él.
-  if (avisosDelTitulo(session).length && !(await preguntarPorElTitulo(session))) {
-    await deleteSession(session.id);
-  }
+  return resultado;
 }
 
 /** Los avisos que la Fase A dejó sobre el título elegido. */
 function avisosDelTitulo(session) {
   return (session && session.bdinfo_result && session.bdinfo_result.avisos_titulo) || [];
+}
+
+/** Las versiones de la película que dejó el análisis en el aviso
+ *  `varias_versiones`, la elegida primero: `[{mpls, segundos, elegida}]`.
+ *  Vacía si el disco trae una sola. */
+function versionesDelTitulo(session) {
+  const a = avisosDelTitulo(session).find(x => x && x.tipo === 'varias_versiones');
+  if (!a) return [];
+  return [{mpls: a.mpls, segundos: a.segundos || 0, elegida: true},
+          ...(a.otras || []).map(o => ({mpls: o.mpls, segundos: o.segundos || 0, elegida: false}))];
 }
 
 /** Las frases de los avisos del título, en el idioma de AHORA: el servidor
@@ -983,30 +1007,152 @@ function renderAvisosDelTitulo(session) {
   } else {
     hide('titulo-aviso-banner');
   }
+  // «Cambiar de versión», solo si hay entre qué elegir y nada lo impide: con
+  // el proyecto en la cola o en marcha el servidor contestaría 409.
+  const ocupado = ['running', 'queued'].includes(session && session.status);
+  if (versionesDelTitulo(session).length > 1 && !ocupado) show('titulo-version-btn');
+  else hide('titulo-version-btn');
 }
 
-/** Pregunta si se sigue con un título que la Fase A marcó como dudoso.
- *  Resuelve `true` para seguir y `false` para abandonar. */
-function preguntarPorElTitulo(session) {
+/** El MKV que ya produjo este proyecto (el de su último rip terminado), o ''. */
+function _mkvYaRipeado(session) {
+  const hechas = ((session && session.execution_history) || [])
+    .filter(r => r && r.status === 'done' && r.output_mkv_path);
+  return hechas.length ? hechas[hechas.length - 1].output_mkv_path.split('/').pop() : '';
+}
+
+/** El diálogo del título: lo que la Fase A no pudo resolver sola y, si el
+ *  disco trae varias versiones de la película, cuál ripear.
+ *
+ *  `modo` 'crear' es el de después del análisis —seguir, elegir otra versión
+ *  o abandonar el proyecto, que lo borra— y 'cambiar' el del botón del panel,
+ *  con «Cancelar» en vez de «Abandonar». Resuelve
+ *  `{accion: 'seguir'|'abandonar'|'cambiar'|'cancelar', mpls}`. */
+function preguntarPorElTitulo(session, modo = 'crear') {
   const bd = session.bdinfo_result || {};
-  document.getElementById('titulo-dudoso-intro').textContent = tr('tab1.titulo_dudoso_intro', {
-    mpls: bd.main_mpls || '', duracion: _fmtDuration(bd.duration_seconds || 0)});
+  const versiones = versionesDelTitulo(session);
+  const cambiar = modo === 'cambiar';
+  setText('titulo-dudoso-intro', cambiar
+    ? tr('tab1.cambiar_version_intro')
+    : tr('tab1.titulo_dudoso_intro', {
+        mpls: bd.main_mpls || '', duracion: _fmtDuration(bd.duration_seconds || 0)}));
+  // Los textos que cambian con el modo van con `tr()` y no cambiando su
+  // `data-i18n`: `pintarTextos` no repinta lo que ya pintó.
+  setText('titulo-dudoso-titulo',
+          cambiar ? tr('tab1.cambiar_de_version') : tr('tab1.revisa_el_titulo_elegido'));
+
+  // Las frases, sin la de las versiones cuando se pueden elegir: la lista de
+  // abajo dice lo mismo y además deja cambiarla.
   const lista = document.getElementById('titulo-dudoso-lista');
   lista.innerHTML = '';
-  for (const frase of frasesDeAvisosDelTitulo(avisosDelTitulo(session))) {
+  const avisos = avisosDelTitulo(session)
+    .filter(a => !(versiones.length > 1 && a && a.tipo === 'varias_versiones'));
+  for (const frase of frasesDeAvisosDelTitulo(avisos)) {
     const li = document.createElement('li');
     li.textContent = frase;
     lista.appendChild(li);
   }
+
+  // Una tarjeta por versión, la de ahora marcada.
+  let marcada = versiones.length ? versiones[0].mpls : null;
+  const caja = document.getElementById('titulo-dudoso-versiones');
+  caja.innerHTML = '';
+  const elegida = versiones[0];
+  for (const v of versiones) {
+    const tarjeta = document.createElement('div');
+    tarjeta.className = 'cmv40-repo-card titulo-version';
+    tarjeta.tabIndex = 0;
+    tarjeta.setAttribute('role', 'radio');
+    tarjeta.dataset.mpls = v.mpls;
+    const minutos = Math.round(Math.abs(v.segundos - elegida.segundos) / 60);
+    const nota = v.elegida ? tr('tab1.version_actual')
+      : (v.segundos >= elegida.segundos ? tr('tab1.version_mas_larga', {min: minutos})
+                                        : tr('tab1.version_mas_corta', {min: minutos}));
+    const fuerte = document.createElement('strong');
+    fuerte.textContent = `${_fmtDuration(v.segundos)} · ${v.mpls}`;
+    const detalle = document.createElement('span');
+    detalle.className = 'titulo-version-nota';
+    detalle.textContent = nota;
+    tarjeta.append(fuerte, ' ', detalle);
+    caja.appendChild(tarjeta);
+  }
+  caja.style.display = versiones.length > 1 ? '' : 'none';
+
+  const notas = document.getElementById('titulo-dudoso-notas');
+  const pregunta = document.getElementById('titulo-dudoso-pregunta');
+  pregunta.style.display = cambiar ? 'none' : '';
+  pregunta.textContent = versiones.length > 1
+    ? tr('tab1.titulo_dudoso_pregunta_versiones') : tr('tab1.titulo_dudoso_pregunta');
+  const seguir = document.getElementById('titulo-dudoso-seguir');
+  document.getElementById('titulo-dudoso-abandonar').style.display = cambiar ? 'none' : '';
+  document.getElementById('titulo-dudoso-cancelar').style.display = cambiar ? '' : 'none';
+
+  const pintar = () => {
+    for (const t of caja.querySelectorAll('.titulo-version')) {
+      const si = t.dataset.mpls === marcada;
+      t.classList.toggle('selected', si);
+      t.setAttribute('aria-checked', si ? 'true' : 'false');
+    }
+    const otra = !!(marcada && elegida && marcada !== elegida.mpls);
+    // Las consecuencias de cambiar, solo cuando se va a cambiar.
+    const lineas = [];
+    if (otra) {
+      lineas.push(tr('tab1.version_se_reanaliza'));
+      const ya = _mkvYaRipeado(session);
+      if (ya) lineas.push(tr('tab1.version_mkv_ya_ripeado', {mkv: ya}));
+    }
+    notas.textContent = lineas.join(' ');
+    notas.style.display = lineas.length ? '' : 'none';
+    seguir.textContent = versiones.length > 1
+      ? (otra ? tr('tab1.usar_esta_version') : tr('tab1.seguir_con_esta_version'))
+      : tr('tab1.seguir_con_este_titulo');
+    seguir.disabled = cambiar && !otra;
+  };
+  for (const t of caja.querySelectorAll('.titulo-version')) {
+    const marcar = () => { marcada = t.dataset.mpls; pintar(); };
+    t.onclick = marcar;
+    t.onkeydown = (ev) => { if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); marcar(); } };
+  }
+  pintar();
+
   return new Promise(resolve => {
-    const responder = seguir => {
+    const responder = accion => {
       closeModal('titulo-dudoso-modal');
-      resolve(seguir);
+      resolve({accion, mpls: marcada});
     };
-    document.getElementById('titulo-dudoso-seguir').onclick = () => responder(true);
-    document.getElementById('titulo-dudoso-abandonar').onclick = () => responder(false);
+    seguir.onclick = () => responder(
+      marcada && elegida && marcada !== elegida.mpls ? 'cambiar' : 'seguir');
+    document.getElementById('titulo-dudoso-abandonar').onclick = () => responder('abandonar');
+    document.getElementById('titulo-dudoso-cancelar').onclick = () => responder('cancelar');
     openModal('titulo-dudoso-modal');
   });
+}
+
+/** El botón «Cambiar de versión» del aviso del panel. El proyecto se captura
+ *  por su id al pulsar: el diálogo y el análisis tardan, y en ese rato el
+ *  usuario puede cambiar de pestaña. */
+async function cambiarDeVersion(sessionId) {
+  const project = openProjects.find(p => p.sessionId === sessionId);
+  const session = project && project.session;
+  if (!session || versionesDelTitulo(session).length < 2) return;
+  const r = await preguntarPorElTitulo(session, 'cambiar');
+  if (r.accion === 'cambiar') await _aplicarVersion(session, r.mpls);
+}
+
+/** Rehace el análisis del proyecto con la versión `mpls`, con el modal de
+ *  análisis delante, y refresca el proyecto con lo que vuelva. */
+async function _aplicarVersion(session, mpls) {
+  const nombre = (session.source_path || session.iso_path || '').split('/').pop();
+  const nueva = await _conModalDeAnalisis(session.source_type || 'iso', nombre, () =>
+    apiFetch(`/api/sessions/${encodeURIComponent(session.id)}/version`, {
+      method: 'POST',
+      body: JSON.stringify({mpls}),
+    }, API_FETCH_TIMEOUT_LARGO));
+  if (!nueva) return null;
+  openProject(nueva);
+  showToast(tr('tab1.version_cambiada', {mpls: escHtml(mpls)}), 'success');
+  await loadSessions();
+  return nueva;
 }
 
 // ══════════════════════════════════════════════════════════════════════

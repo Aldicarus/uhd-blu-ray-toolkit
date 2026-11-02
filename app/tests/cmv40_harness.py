@@ -2615,6 +2615,11 @@ def mkvmerge(sc):
         if adjuntos is None:
             adjuntos = spec.get("attachments") or []
         sys.stdout.write(json.dumps({
+            # El real lo emite SIEMPRE, con la ruta tal como se le pasó, y de
+            # ahí sale el `main_mpls` de la Fase A (`parse_mkvmerge_json`).
+            # Sin él los tests veían un `main_mpls` vacío, y nadie podía
+            # comprobar qué versión de la película se había elegido.
+            "file_name": positional[-1] if positional else "",
             "container": {"supported": True, "properties": propiedades},
             "tracks": out,
             "attachments": adjuntos,

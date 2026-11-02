@@ -341,6 +341,77 @@ class TestElReintentoConElM2ts(OrquestadorCase):
         self.assertEqual(sobrantes, [], f"quedó un intermedio: {sobrantes}")
 
 
+class TestDosVersionesDelMismoDisco(OrquestadorCase):
+    """Fast & Furious 9 (2021), un disco «2in1»: el montaje de cine y el
+    extendido. Con «Cambiar de versión» un proyecto puede ripear las dos con
+    el mismo nombre de MKV, y re-ejecutar escribe sobre ese nombre."""
+
+    def _bd(self, *, mpls="00800.mpls", otra="00801.mpls"):
+        from test_serie_auto_ejecuta import _bdinfo
+        bd = _bdinfo()
+        bd.main_mpls = mpls
+        bd.main_m2ts = self.m2ts.name
+        bd.avisos_titulo = [{"tipo": "varias_versiones", "mpls": mpls, "segundos": 8572,
+                             "otras": [{"mpls": otra, "segundos": 8995}], "mas": 0}]
+        return bd
+
+    def _ripeado(self, mpls: str):
+        """El MKV que dejó en el destino un rip anterior, y su ejecución."""
+        from datetime import datetime, timezone
+        from models import ExecutionRecord
+        final = self.salida / "Peli (2024) [DV FEL].mkv"
+        final.write_bytes(b"el rip de antes")
+        return final, ExecutionRecord(
+            run_number=1, started_at=datetime.now(timezone.utc), status="done",
+            output_mkv_path=str(final), mpls=mpls)
+
+    async def test_no_sustituye_el_mkv_de_la_otra_version(self):
+        """El rip de la versión nueva no puede sustituir sin decir nada el de
+        la otra: lo dice el historial, que anota de qué MPLS salió cada MKV."""
+        final, rec = self._ripeado("00801.mpls")
+        s = await self._correr(self._sesion(bdinfo_result=self._bd(),
+                                            execution_history=[rec]))
+        self.assertEqual(s.status, "error")
+        self.assertIn("00801.mpls", s.error_message)
+        self.assertEqual(final.read_bytes(), b"el rip de antes")
+        self.assertEqual(self.muxes, [], "no tenía que llegar a extraer")
+
+    async def test_la_misma_version_se_vuelve_a_ripear(self):
+        """Re-ejecutar la MISMA versión sobre su MKV es como se re-ripea."""
+        final, rec = self._ripeado("00800.mpls")
+        s = await self._correr(self._sesion(bdinfo_result=self._bd(),
+                                            execution_history=[rec]))
+        self.assertEqual(s.status, "done", s.error_message)
+
+    async def test_cada_ejecucion_anota_su_mpls(self):
+        s = await self._correr(self._sesion(bdinfo_result=self._bd()))
+        self.assertEqual(s.status, "done", s.error_message)
+        self.assertEqual(s.execution_history[-1].mpls, "00800.mpls")
+
+    async def test_el_reintento_con_el_m2ts_no_entrega_otro_montaje(self):
+        """Las versiones comparten casi todos sus segmentos: si el playlist
+        reproduce varios, el M2TS principal no es la versión elegida, y dos
+        montajes pueden diferir menos que el 2 % que tolera la comprobación
+        de duración (revisión de Codex del plan)."""
+        from test_seleccion_mpls_principal import _mpls
+        self.mpls.write_bytes(_mpls([("00044", 6000), ("00045", 2572)]))
+        self.tb.fail_when_arg("mkvmerge", "00800_intermediate", stderr=ASSERTION + "\n")
+        s = await self._correr(self._sesion(bdinfo_result=self._bd()))
+        self.assertEqual(s.status, "error")
+        self.assertFalse([c for c in self.muxes if any(".m2ts" in a for a in c.argv)],
+                         "ha extraído el m2ts con otra versión dentro")
+        self.assertEqual(list(self.salida.rglob("*.mkv")), [])
+
+    async def test_con_un_solo_segmento_el_reintento_sigue(self):
+        """Si el playlist solo reproduce el M2TS principal, ese M2TS ES la
+        versión elegida: el reintento sigue como siempre."""
+        from test_seleccion_mpls_principal import _mpls
+        self.mpls.write_bytes(_mpls([("00044", 7200)]))
+        self.tb.fail_when_arg("mkvmerge", "00800_intermediate", stderr=ASSERTION + "\n")
+        s = await self._correr(self._sesion(bdinfo_result=self._bd()))
+        self.assertEqual(s.status, "done", s.error_message)
+
+
 class TestFallos(OrquestadorCase):
 
     async def test_un_fallo_deja_la_sesion_en_error_con_mensaje(self):

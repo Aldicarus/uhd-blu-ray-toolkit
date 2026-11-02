@@ -53,8 +53,10 @@ from models import (
     QueueReorderRequest,
     Session,
     SessionUpdateRequest,
+    VersionRequest,
 )
-from phases.phase_a import ISO639_TO_ENGLISH, run_full_analysis
+from phases.phase_a import (ISO639_TO_ENGLISH, _segmentos_del_mpls, run_full_analysis,
+                            versiones_del_aviso)
 from phases.phase_b import (
     CODEC_TIER_NAMES, _codec_key, apply_rules, codec_key_de_mkvmerge,
     estimate_output_size_bytes, generate_auto_chapters,
@@ -96,6 +98,9 @@ _active_processes: dict[str, asyncio.subprocess.Process] = {}  # session_id → 
 # mismo JSON. Ver doc en _cmv40_maybe_persist_log para detalles.
 _session_save_throttle: dict[str, dict] = {}
 _session_save_locks: dict[str, asyncio.Lock] = {}
+# Las sesiones a las que se les está cambiando la versión: el análisis tarda
+# un par de minutos y en ese rato ni se ejecutan ni se cambian otra vez.
+_cambiando_version: set[str] = set()
 
 
 def _get_session_save_lock(sid: str) -> asyncio.Lock:
@@ -878,51 +883,18 @@ async def disc_probe_progress():
     return _disc_probe_progress
 
 
-@router.post("/api/analyze", summary="Analiza un ISO (Fase A + B)",
-             dependencies=[Depends(workload.marca(lambda: tr('tab1.wl_analisis_del_disco'), workload.TAB_RIP))])
-async def analyze_iso(body: AnalyzeRequest):
+async def _analizar_el_origen(source_abs: str, stype: str, spath: str,
+                              mpls_elegido: str | None = None) -> dict:
+    """Fases A y B de un origen y sus capítulos: lo que comparten crear un
+    proyecto (`/api/analyze`) y cambiarle la versión (`/version`).
+
+    ``mpls_elegido`` es la versión que eligió el usuario; sin él, la elige la
+    regla de la Fase A. Devuelve un dict con ``bdinfo_result``,
+    ``rules_result``, ``chapters``, ``chapters_auto``, ``chapters_reason``,
+    ``analysis_log`` y ``audio_dcp``. Los fallos salen como HTTPException.
     """
-    Lanza el análisis completo de un origen (ISO, carpeta BDMV o M2TS).
-    Devuelve la sesión lista para revisar.
-
-    Pipeline:
-      - ISO / bdmv_folder: mount (si ISO) → mkvmerge -J MPLS → capítulos
-        → MediaInfo → dovi_tool → reglas.
-      - m2ts: mkvmerge -J sobre el m2ts → capítulos auto-generados →
-        MediaInfo → dovi_tool → reglas (PGS counting con rango default).
-    """
-    from phases.iso_mount import Source, SourceError, safe_source_path
-
-    # Resolver source_type/source_path con compat para iso_path legacy
-    if body.source_type:
-        stype = body.source_type
-        spath = body.source_path or body.iso_path or ""
-    elif body.iso_path:
-        stype = "iso"
-        spath = body.iso_path
-    else:
-        raise HTTPException(status_code=400, detail=tr('tab1.falta_source_type_source_path_o'))
-
-    # ⚠️ DEV MODE — branch que devuelve fixtures sin tocar el filesystem
-    if DEV_MODE:
-        session = build_fake_session(str(paths.ISOS_DIR / (spath or body.iso_path or "")))
-        return _session_payload(session)
-
-    # Validación path-traversal estricta
-    try:
-        source_abs = safe_source_path(spath, str(paths.ISOS_DIR))
-    except SourceError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    if not Path(source_abs).exists():
-        raise HTTPException(status_code=400, detail=tr('tab1.origen_no_encontrado', source_abs=source_abs))
-
-    # Idem que en Tab 2: «Análisis del disco» a secas no dice cuál.
-    _peli = trabajos.nombre_de_trabajo(fichero=Path(source_abs).name)
-    workload.detallar_actual(
-        que=(tr('tab1.wl_analisis_del_disco_de', peli=_peli) if _peli
-             else tr('tab1.wl_analisis_del_disco')),
-        titulo=_peli)
+    from phases.iso_mount import Source, SourceError
+    from phases.phase_a import VersionNoElegible
 
     audio_dcp = "audio dcp" in (spath or "").lower()
 
@@ -969,6 +941,7 @@ async def analyze_iso(body: AnalyzeRequest):
                     src.bdmv_root,
                     log_callback=_progress_callback,
                     pgs_progress_callback=_pgs_progress_callback,
+                    mpls_elegido=mpls_elegido,
                 )
             else:
                 # m2ts suelto (sin BDMV)
@@ -980,6 +953,8 @@ async def analyze_iso(body: AnalyzeRequest):
                 )
                 mpls_path = src.m2ts_paths[0]
     except SourceError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except VersionNoElegible as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         _logger.exception("Error en Fase A para %s", source_abs)
@@ -1023,6 +998,62 @@ async def analyze_iso(body: AnalyzeRequest):
         chapters_auto = True
         chapters_reason = tr(f'tab1.cap_sin_duracion_{origen_clave}')
 
+    return {"bdinfo_result": bdinfo_result, "rules_result": rules_result,
+            "chapters": chapters, "chapters_auto": chapters_auto,
+            "chapters_reason": chapters_reason, "analysis_log": analysis_log,
+            "audio_dcp": audio_dcp}
+
+
+@router.post("/api/analyze", summary="Analiza un ISO (Fase A + B)",
+             dependencies=[Depends(workload.marca(lambda: tr('tab1.wl_analisis_del_disco'), workload.TAB_RIP))])
+async def analyze_iso(body: AnalyzeRequest):
+    """
+    Lanza el análisis completo de un origen (ISO, carpeta BDMV o M2TS).
+    Devuelve la sesión lista para revisar.
+
+    Pipeline:
+      - ISO / bdmv_folder: mount (si ISO) → mkvmerge -J MPLS → capítulos
+        → MediaInfo → dovi_tool → reglas.
+      - m2ts: mkvmerge -J sobre el m2ts → capítulos auto-generados →
+        MediaInfo → dovi_tool → reglas (PGS counting con rango default).
+    """
+    from phases.iso_mount import Source, SourceError, safe_source_path
+
+    # Resolver source_type/source_path con compat para iso_path legacy
+    if body.source_type:
+        stype = body.source_type
+        spath = body.source_path or body.iso_path or ""
+    elif body.iso_path:
+        stype = "iso"
+        spath = body.iso_path
+    else:
+        raise HTTPException(status_code=400, detail=tr('tab1.falta_source_type_source_path_o'))
+
+    # ⚠️ DEV MODE — branch que devuelve fixtures sin tocar el filesystem
+    if DEV_MODE:
+        session = build_fake_session(str(paths.ISOS_DIR / (spath or body.iso_path or "")))
+        return _session_payload(session)
+
+    # Validación path-traversal estricta
+    try:
+        source_abs = safe_source_path(spath, str(paths.ISOS_DIR))
+    except SourceError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not Path(source_abs).exists():
+        raise HTTPException(status_code=400, detail=tr('tab1.origen_no_encontrado', source_abs=source_abs))
+
+    # Idem que en Tab 2: «Análisis del disco» a secas no dice cuál.
+    _peli = trabajos.nombre_de_trabajo(fichero=Path(source_abs).name)
+    workload.detallar_actual(
+        que=(tr('tab1.wl_analisis_del_disco_de', peli=_peli) if _peli
+             else tr('tab1.wl_analisis_del_disco')),
+        titulo=_peli)
+
+    analisis = await _analizar_el_origen(source_abs, stype, spath)
+    bdinfo_result = analisis["bdinfo_result"]
+    rules_result = analisis["rules_result"]
+
     # ── Reutilizar sesión existente por fingerprint ─────────────────
     # Para ISO: huella del fichero .iso (1 MB + tamaño). Para
     # bdmv_folder: huella del m2ts más grande. Para m2ts: huella del
@@ -1038,8 +1069,14 @@ async def analyze_iso(body: AnalyzeRequest):
         fp_target = find_main_m2ts(source_abs) or source_abs
     fingerprint = compute_iso_fingerprint(fp_target) if Path(fp_target).is_file() else ""
     existing = find_session_by_fingerprint(fingerprint) if fingerprint else None
+    historial_previo: list = []
     if existing:
         session_id = existing.id
+        # Reanalizar rehace el proyecto pero no borra lo que ya ripeó: sin su
+        # historial, el rip siguiente no sabría de qué versión es el MKV que
+        # hay en el destino (`_mkv_de_otra_version`) y lo sustituiría.
+        historial_previo = list(existing.execution_history or [])
+        _anotar_mpls_en_el_historial(historial_previo, _mpls_nombre_de_la_sesion(existing))
     else:
         session_id = make_session_id(spath or "source")
 
@@ -1050,19 +1087,20 @@ async def analyze_iso(body: AnalyzeRequest):
         status="pending",
         bdinfo_result=bdinfo_result,
         has_fel=bdinfo_result.has_fel,
-        audio_dcp=audio_dcp,
+        audio_dcp=analisis["audio_dcp"],
         included_tracks=rules_result["included_tracks"],
         discarded_tracks=rules_result["discarded_tracks"],
         ambiguous_audio_langs=rules_result.get("ambiguous_audio_langs", []),
         ambiguous_subtitle_langs=rules_result.get("ambiguous_subtitle_langs", []),
         mkv_name=rules_result["mkv_name"],
         mkv_name_manual=False,
-        chapters=chapters,
-        chapters_auto_generated=chapters_auto,
-        chapters_auto_reason=chapters_reason,
-        analysis_log=analysis_log,
+        chapters=analisis["chapters"],
+        chapters_auto_generated=analisis["chapters_auto"],
+        chapters_auto_reason=analisis["chapters_reason"],
+        analysis_log=analisis["analysis_log"],
         source_type=stype,
         source_path=spath,
+        execution_history=historial_previo,
     )
     save_session(session)
 
@@ -1081,6 +1119,110 @@ async def analyze_iso(body: AnalyzeRequest):
 
     analysis_progress.fijar(step="done", done=True)
     return _session_payload(session)
+
+
+@router.post("/api/sessions/{session_id}/version",
+             summary="Cambia la versión de la película (otro MPLS del disco)",
+             dependencies=[Depends(workload.marca(lambda: tr('tab1.wl_cambio_de_version'), workload.TAB_RIP))])
+async def cambiar_version(session_id: str, body: VersionRequest):
+    """Rehace el análisis de la película con otra de las versiones del disco.
+
+    Un disco «2in1» trae el montaje de cine y el extendido; la Fase A elige uno
+    con su regla y deja el resto en el aviso ``varias_versiones``. Aquí el
+    usuario elige otro de ESA lista —ni un nombre arbitrario ni otro playlist
+    del disco— y se rehacen las fases A y B sobre él en el MISMO proyecto:
+    pistas, capítulos y nombre salen de la versión nueva, y se conservan la
+    ficha de TMDb y el historial de ejecuciones (``/api/analyze`` crea una
+    sesión nueva y lo perdería).
+    """
+    session = load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=tr('tab1.sesion_no_encontrada'))
+    if session.status in ("running", "queued") or session_id in _cambiando_version:
+        raise HTTPException(status_code=409, detail=tr('tab1.version_con_trabajo_en_curso'))
+    if (session.media_type or "movie") != "movie" or \
+            (session.source_type or "iso") not in ("iso", "bdmv_folder"):
+        raise HTTPException(status_code=400, detail=tr('tab1.version_solo_peliculas_de_disco'))
+    mpls = (body.mpls or "").strip()
+    actual = (session.bdinfo_result.main_mpls if session.bdinfo_result else "") or ""
+    ofrecidas = [m for m, _ in versiones_del_aviso(
+        session.bdinfo_result.avisos_titulo if session.bdinfo_result else [])]
+    if mpls.casefold() not in {m.casefold() for m in ofrecidas}:
+        raise HTTPException(status_code=400, detail=tr('tab1.version_no_ofrecida', mpls=mpls))
+    if mpls.casefold() == actual.casefold():
+        return _session_payload(session)
+    available, _, origen = _check_source_available(session)
+    if not available:
+        raise HTTPException(status_code=400, detail=tr('tab1.version_sin_origen', origen=origen))
+
+    _cambiando_version.add(session_id)
+    try:
+        peli = trabajos.nombre_de_trabajo(fichero=Path(session.iso_path).name)
+        workload.detallar_actual(
+            que=(tr('tab1.wl_cambio_de_version_de', peli=peli) if peli
+                 else tr('tab1.wl_cambio_de_version')),
+            titulo=peli)
+        analisis = await _analizar_el_origen(
+            session.iso_path, session.source_type or "iso",
+            session.source_path or session.iso_path, mpls_elegido=mpls)
+
+        # Lo nuevo se aplica sobre la sesión RELEÍDA: el análisis tarda un par
+        # de minutos y en ese rato se ha podido editar (el título, el nombre).
+        fresca = load_session(session_id) or session
+        if fresca.status in ("running", "queued"):
+            raise HTTPException(status_code=409, detail=tr('tab1.version_con_trabajo_en_curso'))
+        bd = analisis["bdinfo_result"]
+        # Las reglas con los modos de la sesión («mantener todas»), como hace
+        # `reapply-rules`: el análisis las aplica con los de por defecto.
+        reglas = apply_rules(bd, session.source_path or session.iso_path,
+                             analisis["audio_dcp"], audio_mode=fresca.audio_mode,
+                             subtitle_mode=fresca.subtitle_mode)
+        # Lo ripeado hasta ahora salió del MPLS de antes: se anota antes de
+        # cambiarlo, o no se sabría de qué versión es el MKV del destino.
+        _anotar_mpls_en_el_historial(fresca.execution_history, actual)
+        fresca.bdinfo_result = bd
+        fresca.has_fel = bd.has_fel
+        fresca.audio_dcp = analisis["audio_dcp"]
+        fresca.included_tracks = reglas["included_tracks"]
+        fresca.discarded_tracks = reglas["discarded_tracks"]
+        fresca.ambiguous_audio_langs = reglas.get("ambiguous_audio_langs", [])
+        fresca.ambiguous_subtitle_langs = reglas.get("ambiguous_subtitle_langs", [])
+        fresca.chapters = analisis["chapters"]
+        fresca.chapters_auto_generated = analisis["chapters_auto"]
+        fresca.chapters_auto_reason = analisis["chapters_reason"]
+        fresca.analysis_log = analisis["analysis_log"]
+        if not fresca.mkv_name_manual:
+            fresca.mkv_name = _nombre_con_el_ano_de_la_ficha(
+                reglas["mkv_name"], session.source_path or session.iso_path, fresca)
+        # Una película va por `main_mpls`, que acaba de cambiar. Un
+        # `mpls_path` le ganaría (es el campo de los episodios).
+        fresca.mpls_path = ""
+        # La sesión describe ahora una versión que no se ha ripeado: el MKV y
+        # el desenlace de antes son de la otra, y siguen en el historial.
+        fresca.status = "pending"
+        fresca.error_message = None
+        fresca.output_mkv_path = None
+        fresca.last_cancelled_at = None
+        fresca.last_validation_warnings = 0
+        save_session(fresca)
+    finally:
+        _cambiando_version.discard(session_id)
+    analysis_progress.fijar(step="done", done=True)
+    return _session_payload(fresca)
+
+
+def _nombre_con_el_ano_de_la_ficha(nombre: str, origen: str, session: Session) -> str:
+    """El nombre automático del MKV con el año de la ficha de TMDb del
+    proyecto si el nombre del origen no lo traía — lo que hace
+    `_hydrate_session_tmdb` al crear, pero con la ficha que YA tiene el
+    proyecto: volver a buscarla por el nombre del origen podría sustituir una
+    elegida a mano en el selector (revisión de Codex del plan)."""
+    from phases.phase_b import _build_mkv_name, _extract_title_year
+    ano = (session.tmdb_info or {}).get("year")
+    titulo, ano_fichero = _extract_title_year(origen)
+    if ano_fichero == "0000" and ano:
+        return _build_mkv_name(titulo, str(ano), session.has_fel, session.audio_dcp)
+    return nombre
 
 
 async def _rehidratar_ficha_de_episodio(session_id: str) -> None:
@@ -2845,6 +2987,15 @@ async def execute_session(session_id: str):
     if otro:
         raise HTTPException(status_code=409, detail=tr(
             'tab1.otro_proyecto_escribe_ese_mkv', mkv_name=session.mkv_name, otro=otro))
+    de_otra = _mkv_de_otra_version(session)
+    if de_otra:
+        raise HTTPException(status_code=409, detail=tr(
+            'tab1.mkv_de_otra_version', mkv=de_otra[0], mpls=de_otra[1]))
+    # Justo antes de pasar a `queued`, sin un `await` en medio: un cambio de
+    # versión que empezara durante los de arriba guardaría al terminar la
+    # sesión en `pending` encima de este encargo (revisión de Codex).
+    if session_id in _cambiando_version:
+        raise HTTPException(status_code=409, detail=tr('tab1.version_cambiando'))
 
     session.status        = "queued"
     session.output_log    = []
@@ -2853,6 +3004,63 @@ async def execute_session(session_id: str):
 
     queue_status = await _encolar_rip(session)
     return {"ok": True, "session_id": session_id, **queue_status}
+
+
+def _mkv_de_otra_version(session: Session) -> tuple[str, str] | None:
+    """``(nombre del MKV, MPLS de su versión)`` si el destino de este proyecto
+    tiene el MKV que el propio proyecto ripeó de OTRA versión de la película,
+    o None.
+
+    Re-ejecutar escribe sobre el mismo nombre —es como se re-ripea—, pero tras
+    «Cambiar de versión» ese nombre puede ser el del rip de la otra, y el
+    `os.replace` del `.mkv.tmp` lo sustituiría sin decir nada. Lo que dice de
+    qué versión es el MKV del destino es el historial: la última ejecución
+    terminada que lo escribió anota su MPLS (`ExecutionRecord.mpls`).
+
+    No se deduce de la duración del fichero: dos versiones pueden diferir
+    menos que lo que acorta el reintento con el M2TS principal, un fichero
+    ilegible no diría nada y el aviso del análisis puede no listar todas las
+    versiones (revisión de Codex del plan, 2026-11-02).
+    """
+    from phases.phase_e import ruta_de_salida
+    try:
+        destino = ruta_de_salida(session.mkv_name)
+    except ValueError:
+        return None
+    if not destino.exists():
+        return None
+    # Las dos rutas resueltas: `ruta_de_salida` no resuelve la suya, y un
+    # enlace en el camino (en macOS, `/var` → `/private/var`) las separaría.
+    destino_real = destino.resolve()
+    actual = (_mpls_nombre_de_la_sesion(session) or "").casefold()
+    for r in reversed(session.execution_history or []):
+        if r.status != "done" or not r.output_mkv_path:
+            continue
+        try:
+            suyo = Path(r.output_mkv_path).resolve() == destino_real
+        except OSError:
+            suyo = False
+        if not suyo:
+            continue
+        if r.mpls and actual and r.mpls.casefold() != actual:
+            return destino.name, r.mpls
+        return None
+    return None
+
+
+def _anotar_mpls_en_el_historial(historial: list, mpls: str) -> None:
+    """Pone ``mpls`` en las ejecuciones que no lo anotaron.
+
+    Son las de antes de que existiera el campo, y hasta entonces una sesión no
+    podía cambiar de MPLS: todas salieron del que tenía. Hay que hacerlo ANTES
+    de cambiarlo —al cambiar de versión, al reanalizar—, o el guard de
+    `_mkv_de_otra_version` no sabría de qué versión es el MKV de antes.
+    """
+    if not mpls:
+        return
+    for r in historial or []:
+        if not r.mpls:
+            r.mpls = mpls
 
 
 def _otro_proyecto_con_el_mismo_destino(session: Session) -> str | None:
@@ -2916,6 +3124,19 @@ async def _resolve_main_m2ts_for_fallback(
     await log(
         '[Pipeline] ' + tr('tab1.mkvmerge_no_pudo_procesar_el_playlist')
     )
+
+    # 0. En un disco con varias versiones de la película, el M2TS principal
+    # solo es la versión elegida si el playlist no reproduce nada más: las
+    # versiones comparten casi todos sus segmentos y se distinguen por unos
+    # pocos, y dos montajes pueden diferir menos que el 2 % que tolera la
+    # comprobación de duración de abajo. Entregar otro montaje con el nombre
+    # de este es peor que no entregar nada (revisión de Codex del plan).
+    avisos = session.bdinfo_result.avisos_titulo if session.bdinfo_result else []
+    if len(versiones_del_aviso(avisos)) > 1:
+        clips = {c for c, _, _ in (_segmentos_del_mpls(mpls_path) or [])}
+        if len(clips) != 1:
+            raise RuntimeError(tr('tab1.reintento_m2ts_no_con_varias_versiones',
+                                  mpls=Path(mpls_path).name))
 
     # 1. Localizar el M2TS principal — preferimos el detectado en Fase A.
     m2ts_path = None
@@ -3139,6 +3360,13 @@ async def _run_pipeline(session_id: str) -> None:
         # Alias mpls_path para no romper código posterior — semánticamente
         # ahora puede ser MPLS o m2ts según el tipo de origen.
         mpls_path = mkvmerge_source
+
+        # Lo mismo que comprueba `execute`, otra vez: la cola puede despachar
+        # cuarenta minutos después, y en ese rato el MKV de la otra versión ha
+        # podido aparecer con este nombre.
+        de_otra = _mkv_de_otra_version(session)
+        if de_otra:
+            raise RuntimeError(tr('tab1.mkv_de_otra_version', mkv=de_otra[0], mpls=de_otra[1]))
 
         _check_cancel()
 
@@ -3742,6 +3970,7 @@ def _append_execution_record(
         status          = session.status,
         error_message   = session.error_message,
         output_mkv_path = session.output_mkv_path,
+        mpls            = _mpls_nombre_de_la_sesion(session) or "",
         phase_elapsed   = phase_elapsed,
         output_log      = list(session.output_log),
     )

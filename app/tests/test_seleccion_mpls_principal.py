@@ -464,6 +464,58 @@ class TestAvisosDelTitulo(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([o["mpls"] for o in versiones[0]["otras"]], list(otra))
         self.assertTrue(self.log.says("⚠️"), self.log.text)
 
+    def _dos_montajes(self):
+        disco = _disco(self.tmp / "Montajes2",
+                       {"00800.mpls": [("00010", 2700), ("00011", 2700), ("00012", 2820)],
+                        "00801.mpls": [("00010", 2700), ("00011", 2700),
+                                       ("00013", 1020), ("00012", 2820)],
+                        "00018.mpls": [("00100", 594)]},
+                       {"00010": PELICULA // 3, "00011": PELICULA // 3,
+                        "00012": PELICULA // 3, "00013": PELICULA // 8,
+                        "00100": CLIP_TRAILER})
+        self._version("00800.mpls", 137)
+        self._version("00801.mpls", 154)
+        self.tb.define_mkv("00018.mpls", tracks=PISTAS_TRAILER, duration_s=594)
+        return disco
+
+    async def test_la_version_que_elige_el_usuario(self):
+        """FAST & FURIOUS 9. Con `mpls_elegido` se toma esa versión en vez de
+        la regla, y el aviso pasa a nombrar como alternativa la que habría
+        elegido la regla: es lo que el panel enseña después."""
+        disco = self._dos_montajes()
+        por_la_regla, _ = await self._avisos(disco)
+        otra = ({"00800.mpls", "00801.mpls"} - {por_la_regla}).pop()
+        avisos = []
+        _, mpls = await run_mkvmerge_identify(str(disco), self.log, avisos=avisos,
+                                              mpls_elegido=otra)
+        self.assertEqual(Path(mpls).name, otra)
+        [versiones] = [a for a in avisos if a["tipo"] == "varias_versiones"]
+        self.assertEqual(versiones["mpls"], otra)
+        self.assertEqual([o["mpls"] for o in versiones["otras"]], [por_la_regla])
+        self.assertTrue(self.log.says(otra))
+
+    async def test_la_version_elegida_no_distingue_mayusculas(self):
+        disco = self._dos_montajes()
+        _, mpls = await run_mkvmerge_identify(str(disco), self.log, avisos=[],
+                                              mpls_elegido="00801.MPLS")
+        self.assertEqual(Path(mpls).name, "00801.mpls")
+
+    async def test_lo_que_no_es_un_titulo_completo_no_se_puede_elegir(self):
+        """Un tráiler, o un playlist que no existe, no son una versión de la
+        película: elegirlos falla en vez de ripear otra cosa."""
+        disco = self._dos_montajes()
+        for nombre in ("00018.mpls", "00999.mpls"):
+            with self.subTest(nombre), self.assertRaises(phase_a.VersionNoElegible):
+                await run_mkvmerge_identify(str(disco), self.log, avisos=[],
+                                            mpls_elegido=nombre)
+
+    async def test_run_full_analysis_pasa_la_version_elegida(self):
+        disco = self._dos_montajes()
+        bdinfo, mpls, _ = await phase_a.run_full_analysis(
+            str(disco), self.log, mpls_elegido="00801.mpls")
+        self.assertEqual(Path(mpls).name, "00801.mpls")
+        self.assertEqual(bdinfo.main_mpls, "00801.mpls")
+
     async def test_unos_segundos_de_diferencia_no_son_otra_version(self):
         """Un aviso legal o unos créditos localizados no son otro montaje."""
         disco = _disco(self.tmp / "Creditos",
@@ -756,6 +808,226 @@ class TestRestaurarCapitulosLeeElMplsDeLaSesion(ApiTestCase):
         self._pedir_restauracion(media_type="series", mpls_path="00801.mpls",
                         season_number=1, episode_number=1)
         self.assertEqual(self.leidos, ["00801.mpls"])
+
+
+# ── Cambiar de versión: el endpoint ────────────────────────────────────
+
+PISTAS_EXTENDIDA = PISTAS_PELICULA + [
+    {"type": "audio", "codec": "DTS-HD Master Audio", "language": "fre", "channels": 8},
+]
+
+
+class TestCambiarDeVersion(ApiTestCase):
+    """`POST /api/sessions/{id}/version`: Fast & Furious 9 (2021), un disco
+    «2in1» con el montaje de cine (00800) y el extendido (00801). Rehace el
+    análisis con la versión elegida EN EL MISMO proyecto."""
+
+    def setUp(self):
+        super().setUp()
+        self.tb = FakeToolbox(self.tmp / "fake")
+        self.tb.install()
+        self.addCleanup(self.tb.uninstall)
+        self.disco = _disco(self.isos_dir / "Montajes",
+                            {"00800.mpls": [("00010", 2700), ("00011", 2700), ("00012", 2820)],
+                             "00801.mpls": [("00010", 2700), ("00011", 2700),
+                                            ("00013", 1020), ("00012", 2820)]},
+                            {"00010": PELICULA // 3, "00011": PELICULA // 3,
+                             "00012": PELICULA // 3, "00013": PELICULA // 8})
+        self.tb.define_mkv("00800.mpls", tracks=PISTAS_PELICULA, duration_s=137 * 60)
+        self.tb.define_mkv("00801.mpls", tracks=PISTAS_EXTENDIDA, duration_s=154 * 60)
+
+    def _sesion(self, **campos):
+        from models import BDInfoResult
+        base = dict(
+            source_type="bdmv_folder", iso_path=str(self.disco), source_path="Montajes",
+            mkv_name="Montajes (2021).mkv",
+            bdinfo_result=BDInfoResult(
+                video_tracks=[], audio_tracks=[], subtitle_tracks=[],
+                duration_seconds=137 * 60, has_fel=False, vo_language="English",
+                main_mpls="00800.mpls",
+                avisos_titulo=[{"tipo": "varias_versiones", "mpls": "00800.mpls",
+                                "segundos": 137 * 60,
+                                "otras": [{"mpls": "00801.mpls", "segundos": 154 * 60}],
+                                "mas": 0}]))
+        base.update(campos)
+        return self.crear_sesion_tab1(**base)
+
+    def _cambiar(self, sid, mpls="00801.mpls"):
+        return self.client.post(f"/api/sessions/{sid}/version", json={"mpls": mpls})
+
+    def _cargar(self, sid):
+        import storage
+        return storage.load_session(sid)
+
+    def _hecho(self, mpls=""):
+        from datetime import datetime, timezone
+        from models import ExecutionRecord
+        final = self.output_dir / "Montajes (2021).mkv"
+        final.write_bytes(b"el rip de antes")
+        return ExecutionRecord(run_number=1, started_at=datetime.now(timezone.utc),
+                               status="done", output_mkv_path=str(final), mpls=mpls)
+
+    def test_cambia_a_la_version_elegida_en_el_mismo_proyecto(self):
+        sid = self._sesion(tmdb_info={"title": "Fast & Furious 9", "year": 2021})
+        r = self._cambiar(sid)
+        self.assertEqual(r.status_code, 200, r.text)
+        s = self._cargar(sid)
+        self.assertEqual(s.id, sid)
+        self.assertEqual(s.bdinfo_result.main_mpls, "00801.mpls")
+        self.assertEqual(s.mpls_path, "")
+        self.assertEqual(s.status, "pending")
+        # El aviso nuevo nombra como alternativa la que había antes.
+        [v] = [a for a in s.bdinfo_result.avisos_titulo if a["tipo"] == "varias_versiones"]
+        self.assertEqual(v["mpls"], "00801.mpls")
+        self.assertEqual([o["mpls"] for o in v["otras"]], ["00800.mpls"])
+        self.assertEqual(s.tmdb_info["year"], 2021, "la ficha se conserva")
+        self.assertEqual(r.json()["bdinfo_result"]["main_mpls"], "00801.mpls")
+
+    def test_lo_ripeado_antes_queda_anotado_con_la_version_de_antes(self):
+        """Las ejecuciones de antes de que existiera el campo salieron del
+        MPLS que tenía la sesión: se anotan ANTES de cambiarlo, o el guard no
+        sabría de qué versión es el MKV del destino."""
+        sid = self._sesion(execution_history=[self._hecho()])
+        self.assertEqual(self._cambiar(sid).status_code, 200)
+        s = self._cargar(sid)
+        self.assertEqual([r.mpls for r in s.execution_history], ["00800.mpls"])
+        self.assertIsNone(s.output_mkv_path)
+
+    def test_respeta_mantener_todas(self):
+        """Las pistas se rehacen con los modos de la sesión, como
+        `reapply-rules`: el análisis las aplica con los de por defecto."""
+        sid = self._sesion(audio_mode="keep_all")
+        self.assertEqual(self._cambiar(sid).status_code, 200)
+        from models import IncludedAudioTrack
+        audios = [t for t in self._cargar(sid).included_tracks
+                  if isinstance(t, IncludedAudioTrack)]
+        self.assertEqual(len(audios), 3, [t.label for t in audios])
+        self.assertEqual(self._cargar(sid).audio_mode, "keep_all")
+
+    def test_el_nombre_lleva_el_ano_de_la_ficha_que_ya_tiene(self):
+        """Sin año en el nombre del origen, el de la ficha del proyecto, sin
+        volver a buscarla: una búsqueda por el nombre del origen podría
+        sustituir la ficha elegida a mano."""
+        from unittest import mock
+        import services.tmdb as tmdb
+
+        async def _no_buscar(*a, **kw):
+            raise AssertionError("no tenía que volver a buscar la ficha")
+
+        sid = self._sesion(tmdb_info={"title": "Otra", "year": 1999})
+        with mock.patch.object(tmdb, "search_movies", _no_buscar):
+            self.assertEqual(self._cambiar(sid).status_code, 200)
+        s = self._cargar(sid)
+        self.assertIn("(1999)", s.mkv_name)
+        self.assertEqual(s.tmdb_info["title"], "Otra")
+
+    def test_un_nombre_editado_no_se_toca(self):
+        sid = self._sesion(mkv_name="Mi nombre.mkv", mkv_name_manual=True)
+        self.assertEqual(self._cambiar(sid).status_code, 200)
+        self.assertEqual(self._cargar(sid).mkv_name, "Mi nombre.mkv")
+
+    def test_lo_que_cambia_mientras_analiza_no_se_pisa(self):
+        """El análisis tarda un par de minutos: lo nuevo se aplica sobre la
+        sesión RELEÍDA, y si en ese rato pasó a la cola no se guarda nada
+        encima (revisión de Codex del plan)."""
+        from unittest import mock
+        import storage
+        from routers import tab1
+        original = tab1._analizar_el_origen
+        sid = self._sesion()
+
+        async def _y_mientras_tanto(*a, **kw):
+            r = await original(*a, **kw)
+            s = storage.load_session(sid)
+            s.tmdb_info = {"title": "elegida mientras", "year": 2021}
+            storage.save_session(s)
+            return r
+
+        with mock.patch.object(tab1, "_analizar_el_origen", _y_mientras_tanto):
+            self.assertEqual(self._cambiar(sid).status_code, 200)
+        self.assertEqual(self._cargar(sid).tmdb_info["title"], "elegida mientras")
+
+        sid2 = self._sesion(sid="Otra_2021_1")
+
+        async def _y_se_encola(*a, **kw):
+            r = await original(*a, **kw)
+            s = storage.load_session(sid2)
+            s.status = "queued"
+            storage.save_session(s)
+            return r
+
+        with mock.patch.object(tab1, "_analizar_el_origen", _y_se_encola):
+            self.assertEqual(self._cambiar(sid2).status_code, 409)
+        s = self._cargar(sid2)
+        self.assertEqual((s.status, s.bdinfo_result.main_mpls), ("queued", "00800.mpls"))
+
+    def test_la_misma_version_no_analiza_nada(self):
+        sid = self._sesion()
+        self.assertEqual(self._cambiar(sid, "00800.mpls").status_code, 200)
+        self.assertEqual(self.tb.find("mkvmerge"), [])
+
+    def test_solo_las_versiones_que_dejo_el_analisis(self):
+        sid = self._sesion()
+        for mpls in ("00018.mpls", "../00801.mpls", "", "00801"):
+            with self.subTest(mpls=mpls):
+                self.assertEqual(self._cambiar(sid, mpls).status_code, 400)
+        self.assertEqual(self.tb.find("mkvmerge"), [])
+
+    def test_ni_en_cola_ni_en_marcha(self):
+        for estado in ("queued", "running"):
+            with self.subTest(estado=estado):
+                sid = self._sesion(status=estado)
+                self.assertEqual(self._cambiar(sid).status_code, 409)
+
+    def test_solo_peliculas_de_disco(self):
+        sid = self._sesion(media_type="series", season_number=1, episode_number=1)
+        self.assertEqual(self._cambiar(sid).status_code, 400)
+
+    def test_un_proyecto_que_no_existe(self):
+        self.assertEqual(self._cambiar("no_existe").status_code, 404)
+
+    def test_no_se_ejecuta_mientras_cambia_de_version(self):
+        from routers import tab1
+        sid = self._sesion()
+        tab1._cambiando_version.add(sid)
+        self.addCleanup(tab1._cambiando_version.discard, sid)
+        self.assertEqual(self.client.post(f"/api/sessions/{sid}/execute").status_code, 409)
+        self.assertEqual(self.encolados, [])
+
+    def test_ejecutar_no_sustituye_el_mkv_de_otra_version(self):
+        """Tras cambiar a 00801, el destino tiene el MKV que el proyecto ripeó
+        de 00800: ejecutar lo sustituiría sin decir nada."""
+        from models import BDInfoResult
+        sid = self._sesion(execution_history=[self._hecho("00800.mpls")],
+                           bdinfo_result=BDInfoResult(
+                               video_tracks=[], audio_tracks=[], subtitle_tracks=[],
+                               duration_seconds=154 * 60, has_fel=False,
+                               vo_language="English", main_mpls="00801.mpls"))
+        r = self.client.post(f"/api/sessions/{sid}/execute")
+        self.assertEqual(r.status_code, 409, r.text)
+        self.assertIn("00800.mpls", r.json()["detail"])
+        self.assertEqual(self.encolados, [])
+
+    def test_ejecutar_la_misma_version_se_encola(self):
+        sid = self._sesion(execution_history=[self._hecho("00800.mpls")])
+        self.assertEqual(self.client.post(f"/api/sessions/{sid}/execute").status_code, 200)
+        self.assertEqual(self.encolados, [sid])
+
+    def test_reanalizar_conserva_el_historial_anotado(self):
+        """«Reanalizar» rehace la sesión, pero sin su historial el rip
+        siguiente no sabría de qué versión es el MKV del destino."""
+        cuerpo = {"source_type": "bdmv_folder", "source_path": "Montajes"}
+        r = self.client.post("/api/analyze", json=cuerpo)
+        self.assertEqual(r.status_code, 200, r.text)
+        sid = r.json()["id"]
+        import storage
+        s = storage.load_session(sid)
+        s.execution_history = [self._hecho()]
+        storage.save_session(s)
+        r = self.client.post("/api/analyze", json=cuerpo)
+        self.assertEqual(r.status_code, 200, r.text)
+        s = storage.load_session(sid)
+        self.assertEqual([x.mpls for x in s.execution_history], [s.bdinfo_result.main_mpls])
 
 
 if __name__ == "__main__":
