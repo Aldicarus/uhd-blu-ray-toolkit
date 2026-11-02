@@ -525,6 +525,7 @@
   "iso_mount.extension_no_reconocida_ext_esperado_iso_o": "Extensió no reconeguda: {ext} (esperada .iso o .m2ts)",
   "iso_mount.fichero_no_es_un_iso": "El fitxer no és un ISO: {iso_path}",
   "iso_mount.iso_montado_pero_no_contiene_bdmv": "ISO muntat però no conté BDMV/ a {mount_point}. És un ISO d'UHD Blu-ray vàlid?",
+  "iso_mount.udf_ilegible": "El NAS ha muntat {iso} però el seu kernel no pot llegir el sistema de fitxers del disc ({error}). Passa amb alguns discos en kernels Linux recents, que rebutgen entrades de directori que els anteriors acceptaven. Extreu el contingut de la ISO a una carpeta i obre-la com a «Carpeta BDMV».",
   "iso_mount.iso_no_encontrado": "ISO no trobat: {iso_path}",
   "iso_mount.m2ts_no_encontrado": "M2TS no trobat: {ruta}",
   "iso_mount.montaje_no_termino": "El muntatge de l'ISO no ha acabat en {segundos} s",

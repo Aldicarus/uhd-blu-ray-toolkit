@@ -525,6 +525,7 @@
   "iso_mount.extension_no_reconocida_ext_esperado_iso_o": "Unbekannte Dateiendung: {ext} (erwartet: .iso oder .m2ts)",
   "iso_mount.fichero_no_es_un_iso": "Die Datei ist kein ISO: {iso_path}",
   "iso_mount.iso_montado_pero_no_contiene_bdmv": "ISO eingehängt, aber in {mount_point} gibt es kein BDMV/. Ist es ein gültiges UHD-Blu-ray-ISO?",
+  "iso_mount.udf_ilegible": "Das NAS hat {iso} eingehängt, aber sein Kernel kann das Dateisystem der Disc nicht lesen ({error}). Das passiert bei manchen Discs mit neueren Linux-Kerneln, die Verzeichniseinträge ablehnen, die frühere akzeptiert haben. Extrahiere den Inhalt der ISO in einen Ordner und öffne ihn als „BDMV-Ordner“.",
   "iso_mount.iso_no_encontrado": "ISO nicht gefunden: {iso_path}",
   "iso_mount.m2ts_no_encontrado": "M2TS nicht gefunden: {ruta}",
   "iso_mount.montaje_no_termino": "Das Einhängen des ISO wurde nicht innerhalb von {segundos} s abgeschlossen",

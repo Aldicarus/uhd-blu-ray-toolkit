@@ -525,6 +525,7 @@
   "iso_mount.extension_no_reconocida_ext_esperado_iso_o": "Unrecognized extension: {ext} (expected .iso or .m2ts)",
   "iso_mount.fichero_no_es_un_iso": "Not an ISO file: {iso_path}",
   "iso_mount.iso_montado_pero_no_contiene_bdmv": "The ISO is mounted but there's no BDMV/ in {mount_point}. Is it a valid UHD Blu-ray ISO?",
+  "iso_mount.udf_ilegible": "The NAS mounted {iso} but its kernel cannot read the disc's file system ({error}). It happens with some discs on recent Linux kernels, which reject directory entries that earlier ones accepted. Extract the ISO's contents to a folder and open it as a “BDMV folder”.",
   "iso_mount.iso_no_encontrado": "ISO not found: {iso_path}",
   "iso_mount.m2ts_no_encontrado": "M2TS not found: {ruta}",
   "iso_mount.montaje_no_termino": "Mounting the ISO did not finish in {segundos} s",

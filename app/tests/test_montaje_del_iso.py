@@ -122,6 +122,31 @@ class TestMontarYDesmontar(MontajeCase):
         self.assertTrue(self.tb.ran("umount"))
         self.assertEqual(self.puntos(), [])
 
+    async def test_un_udf_que_el_kernel_no_lee_se_desmonta_y_se_dice(self):
+        """JUEGO DE TRONOS T8. El kernel 6.6 monta el ISO pero rechaza una
+        entrada de su directorio: `exists()` no contesta «no existe», LANZA
+        `[Errno 117] Structure needs cleaning`. Salía de `mount_iso` con el
+        ISO montado, y cada intento dejaba un montaje colgado en /mnt/bd."""
+        import errno
+        from unittest import mock
+        self.tb.define_iso(self.iso.name, mpls={"00800.mpls": 4096})
+        original = Path.exists
+
+        def _exists(ruta, *a, **kw):
+            if ruta.name == "BDMV" and self.base in ruta.parents:
+                raise OSError(getattr(errno, "EUCLEAN", 117), "Structure needs cleaning", str(ruta))
+            return original(ruta, *a, **kw)
+
+        with mock.patch.object(Path, "exists", _exists):
+            with self.assertRaises(RuntimeError) as ctx:
+                async with await self.im.Source.open(str(self.iso)):
+                    self.fail("no tenía que llegar a abrirse")
+        self.assertIn("Structure needs cleaning", str(ctx.exception))
+        self.assertIn(self.iso.name, str(ctx.exception))
+        [m], [u] = self.tb.find("mount"), self.tb.find("umount")
+        self.assertEqual(u.argv, [m.argv[5]], "el ISO se queda montado")
+        self.assertEqual(self.puntos(), [])
+
     async def test_si_el_umount_falla_prueba_el_lazy(self):
         self.tb.define_iso(self.iso.name, mpls={"00800.mpls": 4096})
         punto = await self.im.mount_iso(str(self.iso))

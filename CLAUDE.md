@@ -4043,6 +4043,22 @@ Generalización aplicada a las dos: **el forzado es la ÚLTIMA aparición de un 
 - Requiere `privileged: true` en Docker
 - **MOUNT_BASE**: `/mnt/bd` (creado en entrypoint.sh)
 - `unmount_iso()`: umount normal, fallback lazy, limpia directorio
+- **Cualquier fallo después de montar desmonta** (`mount_iso`). Con un UDF que
+  el kernel no acepta, comprobar `BDMV` no contesta «no existe»: LANZA
+  (`[Errno 117] Structure needs cleaning`), y la excepción salía de la función
+  con el ISO montado, antes de que el `__aexit__` de `Source` existiera para
+  desmontarlo. Cada intento dejaba un montaje colgado en `/mnt/bd`.
+- **El kernel 6.6 de QuTS no lee algunos discos que los anteriores sí**
+  (noviembre de 2026, Juego de tronos T8, los tres discos): `dmesg` dice
+  `udf_verify_fi: directory (ino 290) has entry where CRC length (31) does not
+  match entry length (32)`. Es una imperfección del disco de fábrica (volumen
+  de 2019) que el driver UDF reescrito en 6.3 rechaza, y no hay opción de
+  montaje que lo evite. Peor: **listar la raíz de ese montaje deja el proceso
+  girando dentro del kernel**, sin poder matarlo durante minutos, con la CPU
+  al 100 % (le pasó a un `ls` de diagnóstico y a File Station). El `7z` del NAS
+  (16.02) tampoco lo abre. Lo que funciona es extraer el ISO a una carpeta en
+  otra máquina y abrirla como «Carpeta BDMV»; la app lo dice con
+  `iso_mount.udf_ilegible`. **No diagnosticar estos ISO listando el montaje.**
 
 ### Abstracción Source (v2.6+) — soporte BDMV/M2TS sin ISO
 
@@ -4428,7 +4444,7 @@ versión) y las 46 comprobaciones de su Fase C en verde.
 ### La auditoría de la suite del 2026-10-17: lo que cambió en cómo se prueba
 
 Con **38 mutaciones** propuestas por Codex aplicadas A LA VEZ, los 3.117 tests
-de entonces seguían en verde. Hoy hay **772 mutaciones** en
+de entonces seguían en verde. Hoy hay **773 mutaciones** en
 `app/tools/mutaciones.json` —las 42 de la auditoría que siguen aplicando, más
 una por cada arreglo que salió de ella, las de la pestaña Multiplexar, las
 `T5R-*` de la pasada de registro a toda la app, las `T2R-*`/`T2F-*`/`T4A-*`

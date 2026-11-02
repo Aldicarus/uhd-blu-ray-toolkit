@@ -6967,5 +6967,14 @@
   "modulos": [
    "test_seleccion_mpls_principal"
   ]
+ },
+ {
+  "id": "T9M-1 un UDF que el kernel no lee vuelve a dejar el ISO montado",
+  "fichero": "app/phases/iso_mount.py",
+  "viejo": "    try:\n        hay_bdmv = bdmv.exists()\n    except OSError as e:\n        await unmount_iso(str(mount_point))\n        raise RuntimeError(tr('iso_mount.udf_ilegible', iso=iso.name,\n                              error=e.strerror or str(e))) from e\n",
+  "nuevo": "    try:\n        hay_bdmv = bdmv.exists()\n",
+  "modulos": [
+   "test_montaje_del_iso"
+  ]
  }
 ]

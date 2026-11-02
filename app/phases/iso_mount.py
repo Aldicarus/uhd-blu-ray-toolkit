@@ -104,9 +104,25 @@ async def mount_iso(iso_path: str) -> str:
             tr('iso_mount.error_montando_iso_el_contenedor_tiene', returncode=result.returncode, stderr=stderr)
         )
 
-    # Verificar que el BDMV es accesible
+    # Verificar que el BDMV es accesible. Cualquier fallo de aquí en adelante
+    # DESMONTA: con un UDF que el kernel no acepta, `exists()` no contesta «no
+    # existe», LANZA (`[Errno 117] Structure needs cleaning`), y la excepción
+    # salía de la función con el ISO montado: cada intento dejaba un montaje
+    # colgado en /mnt/bd. Caso real, Juego de tronos T8 (noviembre de 2026):
+    # el kernel 6.6 de QuTS rechaza una entrada de directorio del disco de
+    # fábrica («CRC length (31) does not match entry length (32)») que los
+    # kernels anteriores aceptaban.
     bdmv = mount_point / "BDMV"
-    if not bdmv.exists():
+    try:
+        hay_bdmv = bdmv.exists()
+    except OSError as e:
+        await unmount_iso(str(mount_point))
+        raise RuntimeError(tr('iso_mount.udf_ilegible', iso=iso.name,
+                              error=e.strerror or str(e))) from e
+    except BaseException:
+        await unmount_iso(str(mount_point))
+        raise
+    if not hay_bdmv:
         await unmount_iso(str(mount_point))
         raise RuntimeError(
             tr('iso_mount.iso_montado_pero_no_contiene_bdmv', mount_point=mount_point)
